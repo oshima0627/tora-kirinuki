@@ -89,7 +89,9 @@ def render_point(text: str, size: tuple[int, int] = SIZE) -> Image.Image:
     band_h = line_h * len(lines) + int(h * 0.048)
     top = h - band_h - int(h * 0.055)
 
-    d.rectangle([0, top, w, top + band_h], fill=BG_TOP + (238,))
+    # 帯は不透明にする。半透明にすると元動画の氏名テロップが透けて重なり、
+    # こちらの文字も相手の文字も読めなくなる（実測で確認）
+    d.rectangle([0, top, w, top + band_h], fill=BG_TOP + (255,))
     d.rectangle([0, top, int(w * 0.014), top + band_h], fill=RED + (255,))
 
     yy = top + int(h * 0.024)

@@ -12,11 +12,19 @@ def test_案件カードはサイズを変えられる():
     assert render_brief({"amount": "200万円"}, size=(1280, 720)).size == (1280, 720)
 
 
-def test_論点カードは透過で返る():
+def test_論点カードは帯以外が透過で返る():
     # 映像に重ねるので、帯以外は抜けている必要がある
     img = render_point("原価が見えていないのに値付けはできない")
     assert img.mode == "RGBA"
     assert img.getpixel((10, 10))[3] == 0
+
+
+def test_論点カードの帯は不透明():
+    # 半透明にすると元動画の氏名テロップが透けて重なり、両方読めなくなる
+    img = render_point("原価が見えていないのに値付けはできない")
+    w, h = img.size
+    band = [img.getpixel((w // 2, y))[3] for y in range(h)]
+    assert max(band) == 255
 
 
 def test_判定カードは指定サイズで返る():
