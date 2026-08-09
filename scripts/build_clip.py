@@ -111,8 +111,8 @@ def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
     else:
         bg = grab(thumb["at"], "_thumbsrc.png")
 
-    render_thumbnail(bg, thumb.get("lines") or [],
-                     thumb.get("badge", "")).save(out / "thumb.png")
+    render_thumbnail(bg, thumb.get("lines") or [], thumb.get("badge", ""),
+                     thumb.get("ribbon", "")).save(out / "thumb.png")
 
 
 def build(recipe_path: Path, dry_run: bool = False) -> Path:

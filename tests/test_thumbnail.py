@@ -1,6 +1,6 @@
 from PIL import Image
 
-from scripts.thumbnail import _crop_16x9, render_thumbnail
+from scripts.thumbnail import crop_panel, render_thumbnail
 
 BG = Image.new("RGB", (1920, 1080), (90, 100, 110))
 
@@ -54,7 +54,42 @@ def test_縦横比の違う背景でも指定サイズに収まる():
     assert render_thumbnail(tall, LINES).size == (1280, 720)
 
 
-def test_切り出しは16対9を保つ():
+def test_切り出しは指定比率を保つ():
     # 上下を落とすだけだと比率が崩れ、リサイズで顔が縦に伸びる
-    c = _crop_16x9(BG)
-    assert abs(c.width / c.height - 16 / 9) < 0.02
+    c = crop_panel(BG, 0.5, (640, 720))
+    assert c.size == (640, 720)
+
+
+def test_上部の告知は切り落とす():
+    from scripts.thumbnail import PANEL_TOP
+    assert PANEL_TOP >= 0.12
+
+
+def test_下帯はぼかされて元テロップが読めなくなる():
+    # 切り落とすと顎まで切れるフレームがあるのでぼかす。
+    # ぼかしたぶん、細かい模様が消えて分散が下がる
+    import statistics
+    src = Image.new("RGB", (1920, 1080))
+    px = src.load()
+    for y in range(1080):
+        for x in range(0, 1920, 2):      # 縞模様を敷いて「文字」に見立てる
+            px[x, y] = (255, 255, 255)
+    panel = crop_panel(src, 0.5, (640, 720))
+    top = [panel.getpixel((x, 60))[0] for x in range(0, 640, 4)]
+    bottom = [panel.getpixel((x, 700))[0] for x in range(0, 640, 4)]
+    assert statistics.pstdev(bottom) < statistics.pstdev(top)
+
+
+def test_リボン付きでも落ちない():
+    render_thumbnail(BG, LINES, badge="関西版 77人目", ribbon="「挑戦できます?」")
+
+
+def test_リボンを足すと結果が変わる():
+    a = render_thumbnail(BG, LINES)
+    b = render_thumbnail(BG, LINES, ribbon="「挑戦できます?」")
+    assert list(a.getdata()) != list(b.getdata())
+
+
+def test_2枚並べは指定サイズで返る():
+    from scripts.thumbnail import compose_faces
+    assert compose_faces([BG, BG], [0.3, 0.6]).size == (1280, 720)
