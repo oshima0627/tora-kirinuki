@@ -209,6 +209,8 @@ def main() -> None:
                     help="認証だけ通して token.json を作る")
     ap.add_argument("--publish", action="store_true",
                     help="アップロード済みの動画を公開に切り替える")
+    ap.add_argument("--thumbnail-only", action="store_true",
+                    help="アップロード済みの動画のサムネイルだけ差し替える")
     a = ap.parse_args()
 
     service = get_service()
@@ -222,6 +224,17 @@ def main() -> None:
     meta = json.loads((a.workdir / "meta.json").read_text(encoding="utf-8"))
     ch = assert_expected_channel(service, meta)
     print(f"- チャンネル: {ch['title']}（{ch['id']}）")
+
+    if a.thumbnail_only:
+        data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
+        entry = data["videos"].get(meta["id"]) or die(
+            f"{meta['id']} はまだアップロードされていません")
+        ok = set_thumbnail(service, entry["youtube_video_id"], a.workdir)
+        entry["thumbnail_set"] = ok
+        PUBLISHED.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"{'✓ 差し替えました' if ok else '! 差し替えできませんでした'}: {entry['url']}")
+        return
 
     if a.publish:
         data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
