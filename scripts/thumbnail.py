@@ -36,7 +36,7 @@ COLORS = {"r": RED, "y": YELLOW, "w": WHITE}
 EDGE = {"r": YELLOW, "y": BLACK, "w": RED}
 
 # 元動画は上下にテロップを焼き込む。顔が残る帯だけを使う
-PANEL_TOP, PANEL_BOTTOM = 0.155, 0.02
+PANEL_TOP, PANEL_BOTTOM = 0.155, 0.28
 
 
 def cutout(frame: Image.Image):
@@ -65,24 +65,9 @@ def person_center(frame: Image.Image) -> float | None:
     return ((box[0] + box[2]) / 2) / frame.width if box else None
 
 
-BLUR_BAND = 0.30      # 下からこの割合を強くぼかす（元テロップを潰す）
-
-
-def _blur_caption_band(img: Image.Image) -> Image.Image:
-    """元動画のテロップが乗る下帯だけを強くぼかす。
-
-    **切り落とさずにぼかす。** 落とすと顎まで切れるフレームがあり、
-    かといって残すとこちらの文字と二重になる。ぼかせば被写界深度のように
-    見えて顔は大きいまま、元の文字だけが読めなくなる。
-    """
-    w, h = img.size
-    band_top = int(h * (1 - BLUR_BAND))
-    blurred = img.filter(ImageFilter.GaussianBlur(w // 12))
-
-    mask = Image.new("L", (w, h), 0)
-    ImageDraw.Draw(mask).rectangle([0, band_top, w, h], fill=255)
-    mask = mask.filter(ImageFilter.GaussianBlur(h // 22))   # 境目をぼかす
-    return Image.composite(blurred, img, mask)
+# 写真が占める高さ。残りは白地にして、そこに文字を置く。
+# 元動画のテロップ帯は切り落とすので二重にならない
+PHOTO_H = 0.70
 
 
 def crop_panel(bg: Image.Image, x: float, out: tuple[int, int]) -> Image.Image:
@@ -92,8 +77,7 @@ def crop_panel(bg: Image.Image, x: float, out: tuple[int, int]) -> Image.Image:
     keep_h = int(bh * (1 - PANEL_TOP - PANEL_BOTTOM))
     keep_w = min(bw, int(keep_h * out[0] / out[1]))
     left = max(0, min(bw - keep_w, int(bw * x) - keep_w // 2))
-    panel = bg.crop((left, top, left + keep_w, top + keep_h)).resize(out, Image.LANCZOS)
-    return _blur_caption_band(panel)
+    return bg.crop((left, top, left + keep_w, top + keep_h)).resize(out, Image.LANCZOS)
 
 
 def compose_faces(frames: list[Image.Image], xs: list[float | None] | None = None,
@@ -107,15 +91,16 @@ def compose_faces(frames: list[Image.Image], xs: list[float | None] | None = Non
     """
     w, h = size
     n = len(frames)
-    pw = w // n
+    pw, ph = w // n, int(h * PHOTO_H)
     xs = list(xs or [None] * n)
 
-    img = Image.new("RGB", size, BLACK)
+    # 写真の下は白地。元動画のテロップ帯を切り落としたぶんをここに充てる
+    img = Image.new("RGB", size, WHITE)
     for i, fr in enumerate(frames):
         x = xs[i] if i < len(xs) and xs[i] is not None else 0.5
         # **先にパネル領域へ切ってから抜く。** フレーム全体に掛けると画面内の
         # 別の人物や机まで残り、1人に絞れない（実際にそうなった）
-        panel = crop_panel(fr.convert("RGB"), x, (pw, h))
+        panel = crop_panel(fr.convert("RGB"), x, (pw, ph))
 
         person = cutout(panel) if cut else None
         if person is None:
@@ -130,7 +115,7 @@ def compose_faces(frames: list[Image.Image], xs: list[float | None] | None = Non
 
     d = ImageDraw.Draw(img)
     for i in range(1, n):
-        d.rectangle([i * pw - 3, 0, i * pw + 2, h], fill=BLACK)
+        d.rectangle([i * pw - 3, 0, i * pw + 2, ph], fill=BLACK)
     return img
 
 

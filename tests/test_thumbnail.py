@@ -65,19 +65,17 @@ def test_上部の告知は切り落とす():
     assert PANEL_TOP >= 0.12
 
 
-def test_下帯はぼかされて元テロップが読めなくなる():
-    # 切り落とすと顎まで切れるフレームがあるのでぼかす。
-    # ぼかしたぶん、細かい模様が消えて分散が下がる
-    import statistics
-    src = Image.new("RGB", (1920, 1080))
-    px = src.load()
-    for y in range(1080):
-        for x in range(0, 1920, 2):      # 縞模様を敷いて「文字」に見立てる
-            px[x, y] = (255, 255, 255)
-    panel = crop_panel(src, 0.5, (640, 720))
-    top = [panel.getpixel((x, 60))[0] for x in range(0, 640, 4)]
-    bottom = [panel.getpixel((x, 700))[0] for x in range(0, 640, 4)]
-    assert statistics.pstdev(bottom) < statistics.pstdev(top)
+def test_元テロップの帯は切り落とす():
+    # 下部0.72-1.0にテロップが焼き込まれている。含めるとサムネの文字と二重になる
+    from scripts.thumbnail import PANEL_BOTTOM
+    assert PANEL_BOTTOM >= 0.27
+
+
+def test_写真の下は白地になる():
+    from scripts.thumbnail import compose_faces
+    img = compose_faces([BG, BG], [0.5, 0.5])
+    w, h = img.size
+    assert img.getpixel((w // 4, h - 10)) == (255, 255, 255)
 
 
 def test_リボン付きでも落ちない():
