@@ -95,14 +95,24 @@ def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
 
     from PIL import Image
 
-    from scripts.thumbnail import render_thumbnail
+    from scripts.thumbnail import compose_faces, render_thumbnail
 
-    frame = out / "_thumbsrc.png"
-    _run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{thumb['at']}",
-          "-i", str(src / "source.mp4"), "-frames:v", "1", str(frame)])
-    render_thumbnail(Image.open(frame), thumb.get("line1", ""),
-                     thumb.get("line2", ""), thumb.get("badge", "")
-                     ).save(out / "thumb.png")
+    def grab(at: float, name: str) -> Image.Image:
+        p = out / name
+        _run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{at}",
+              "-i", str(src / "source.mp4"), "-frames:v", "1", str(p)])
+        return Image.open(p)
+
+    faces = thumb.get("faces")
+    if faces:
+        # 掛け合いは左右に2人並べる。競合の上位サムネで最も多い型
+        frames = [grab(f["at"], f"_face{i}.png") for i, f in enumerate(faces)]
+        bg = compose_faces(frames, [f.get("x", 0.5) for f in faces])
+    else:
+        bg = grab(thumb["at"], "_thumbsrc.png")
+
+    render_thumbnail(bg, thumb.get("lines") or [],
+                     thumb.get("badge", "")).save(out / "thumb.png")
 
 
 def build(recipe_path: Path, dry_run: bool = False) -> Path:
