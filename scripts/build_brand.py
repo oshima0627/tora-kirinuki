@@ -49,11 +49,11 @@ FONT_SANS = [
 
 # 令和の虎系の赤・金。配色は誰の占有物でもないのでここだけ共有する
 RED = (214, 34, 42)
-GOLD = (240, 176, 56)
-INK_TOP = (22, 22, 26)
-INK_BOTTOM = (12, 12, 15)
-LINE = (247, 245, 242)
-SUB = (150, 148, 152)
+GOLD = (226, 158, 34)          # 白地では明るい金が飛ぶので少し落とす
+BG_TOP = (255, 255, 255)
+BG_BOTTOM = (243, 243, 246)
+LINE = (24, 24, 28)            # 見出し
+SUB = (122, 122, 132)
 
 BANNER_W, BANNER_H = 2560, 1440
 SAFE_W, SAFE_H = 1546, 423
@@ -142,12 +142,12 @@ def _tiger(size: int) -> Image.Image:
 
 def _ground(w: int, h: int) -> Image.Image:
     """ほぼ無地。グラデーションは気づかない程度に留める。"""
-    img = Image.new("RGB", (w, h), INK_TOP)
+    img = Image.new("RGB", (w, h), BG_TOP)
     d = ImageDraw.Draw(img)
     for y in range(h):
         t = y / h
         d.line([(0, y), (w, y)], fill=tuple(
-            int(a + (b - a) * t) for a, b in zip(INK_TOP, INK_BOTTOM)))
+            int(a + (b - a) * t) for a, b in zip(BG_TOP, BG_BOTTOM)))
     return img
 
 
