@@ -85,7 +85,7 @@ def _still(png: Path, out: Path, seconds: float) -> None:
 def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
     """サムネイルを作る。
 
-    recipe に thumb があれば元映像のフレームに極太文字を載せる（競合の型）。
+    recipe に thumb があれば競合の型で組む（黒帯＋左右の写真＋吹き出し＋極太行）。
     無ければ案件カードをそのまま使う。
     """
     thumb = recipe.get("thumb")
@@ -95,7 +95,7 @@ def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
 
     from PIL import Image
 
-    from scripts.thumbnail import compose_faces, render_thumbnail
+    from scripts.thumbnail import compose_photos, render_thumbnail
 
     def grab(at: float, name: str) -> Image.Image:
         p = out / name
@@ -103,16 +103,12 @@ def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
               "-i", str(src / "source.mp4"), "-frames:v", "1", str(p)])
         return Image.open(p)
 
-    faces = thumb.get("faces")
-    if faces:
-        # 掛け合いは左右に2人並べる。競合の上位サムネで最も多い型
-        frames = [grab(f["at"], f"_face{i}.png") for i, f in enumerate(faces)]
-        bg = compose_faces(frames, [f.get("x", 0.5) for f in faces])
-    else:
-        bg = grab(thumb["at"], "_thumbsrc.png")
+    faces = thumb.get("faces") or []
+    frames = [grab(f["at"], f"_face{i}.png") for i, f in enumerate(faces)]
+    photo = compose_photos(frames, [f.get("x", 0.5) for f in faces])
 
-    render_thumbnail(bg, thumb.get("lines") or [], thumb.get("badge", ""),
-                     thumb.get("ribbon", "")).save(out / "thumb.png")
+    render_thumbnail(photo, thumb.get("top"), thumb.get("bubbles"),
+                     thumb.get("bottom")).save(out / "thumb.png")
 
 
 def build(recipe_path: Path, dry_run: bool = False) -> Path:

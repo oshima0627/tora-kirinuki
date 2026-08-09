@@ -1,93 +1,67 @@
 from PIL import Image
 
-from scripts.thumbnail import crop_panel, render_thumbnail
+from scripts.thumbnail import compose_photos, render_thumbnail
 
 BG = Image.new("RGB", (1920, 1080), (90, 100, 110))
+PHOTO = Image.new("RGB", (1280, 720), (90, 100, 110))
 
-LINES = [
-    [{"t": "「挑戦できます?」", "c": "y"}],
-    [{"t": "倍", "c": "r", "s": 1.6}, {"t": "にして返してもらおう", "c": "r"}],
-]
+TOP = [{"t": "粗利は1棟", "c": "r"}, {"t": "20万円", "c": "y"}]
+BUBBLES = [{"t": "挑戦できます?", "c": "r", "side": "l"},
+           {"t": "したい", "c": "m", "side": "r"}]
+BOTTOM = [{"t": "倍にして返してもらおう", "c": "r"}]
 
 
 def test_1280x720で返る():
-    assert render_thumbnail(BG, LINES).size == (1280, 720)
+    assert render_thumbnail(PHOTO, TOP, BUBBLES, BOTTOM).size == (1280, 720)
 
 
-def test_行が空でも落ちない():
-    assert render_thumbnail(BG, []).size == (1280, 720)
-    assert render_thumbnail(BG, [[]]).size == (1280, 720)
+def test_何も指定しなくても落ちない():
+    assert render_thumbnail(PHOTO).size == (1280, 720)
 
 
-def test_バッジ付きでも落ちない():
-    render_thumbnail(BG, LINES, badge="関西版 77人目")
+def test_上部は黒帯になる():
+    # 元動画の募集告知はここで隠れる
+    assert render_thumbnail(PHOTO, TOP).getpixel((20, 10)) == (8, 8, 10)
+
+
+def test_黒帯の下は写真のまま():
+    assert render_thumbnail(PHOTO, TOP).getpixel((20, 700)) != (8, 8, 10)
+
+
+def test_1行の中で色を変えられる():
+    a = render_thumbnail(PHOTO, [{"t": "テスト", "c": "r"}])
+    b = render_thumbnail(PHOTO, [{"t": "テスト", "c": "y"}])
+    assert list(a.getdata()) != list(b.getdata())
+
+
+def test_吹き出しの向きを変えると結果が変わる():
+    a = render_thumbnail(PHOTO, bubbles=[{"t": "あ", "c": "r", "side": "l"}])
+    b = render_thumbnail(PHOTO, bubbles=[{"t": "あ", "c": "r", "side": "r"}])
+    assert list(a.getdata()) != list(b.getdata())
 
 
 def test_長い文字列でも落ちない():
-    render_thumbnail(BG, [[{"t": "あ" * 40, "c": "r"}]], badge="う" * 20)
+    render_thumbnail(PHOTO, [{"t": "あ" * 40, "c": "r"}],
+                     [{"t": "い" * 40, "c": "m", "side": "l"}],
+                     [{"t": "う" * 40, "c": "r"}])
 
 
-def test_倍率が大きくても落ちない():
-    render_thumbnail(BG, [[{"t": "倍", "c": "r", "s": 3.0}, {"t": "返す", "c": "r"}]])
+def test_吹き出しを何枚重ねても落ちない():
+    render_thumbnail(PHOTO, bubbles=[{"t": f"発言{i}", "c": "r", "side": "l"}
+                                     for i in range(6)])
 
 
-def test_文字が乗ると背景と変わる():
-    assert list(render_thumbnail(BG, []).getdata()) != \
-        list(render_thumbnail(BG, LINES).getdata())
+def test_写真は左右に並ぶ():
+    assert compose_photos([BG, BG], [0.3, 0.6]).size == (1280, 720)
 
 
-def test_色を変えると結果も変わる():
-    a = render_thumbnail(BG, [[{"t": "テスト", "c": "r"}]])
-    b = render_thumbnail(BG, [[{"t": "テスト", "c": "y"}]])
-    assert list(a.getdata()) != list(b.getdata())
+def test_写真は黒帯のぶん下げて敷く():
+    img = compose_photos([BG, BG], [0.5, 0.5])
+    assert img.getpixel((640, 5)) == (8, 8, 10)
+    assert img.getpixel((320, 700)) != (8, 8, 10)
 
 
-def test_抑揚をつけると結果が変わる():
-    flat = render_thumbnail(BG, [[{"t": "倍", "c": "r"}, {"t": "返す", "c": "r"}]])
-    accent = render_thumbnail(BG, [[{"t": "倍", "c": "r", "s": 1.8},
-                                    {"t": "返す", "c": "r"}]])
-    assert list(flat.getdata()) != list(accent.getdata())
-
-
-def test_縦横比の違う背景でも指定サイズに収まる():
-    tall = Image.new("RGB", (1080, 1920), (30, 30, 30))
-    assert render_thumbnail(tall, LINES).size == (1280, 720)
-
-
-def test_切り出しは指定比率を保つ():
-    # 上下を落とすだけだと比率が崩れ、リサイズで顔が縦に伸びる
-    c = crop_panel(BG, 0.5, (640, 720))
-    assert c.size == (640, 720)
-
-
-def test_上部の告知は切り落とす():
-    from scripts.thumbnail import PANEL_TOP
-    assert PANEL_TOP >= 0.12
-
-
-def test_元テロップの帯は切り落とす():
-    # 下部0.72-1.0にテロップが焼き込まれている。含めるとサムネの文字と二重になる
-    from scripts.thumbnail import PANEL_BOTTOM
-    assert PANEL_BOTTOM >= 0.27
-
-
-def test_写真の下は白地になる():
-    from scripts.thumbnail import compose_faces
-    img = compose_faces([BG, BG], [0.5, 0.5])
-    w, h = img.size
-    assert img.getpixel((w // 4, h - 10)) == (255, 255, 255)
-
-
-def test_リボン付きでも落ちない():
-    render_thumbnail(BG, LINES, badge="関西版 77人目", ribbon="「挑戦できます?」")
-
-
-def test_リボンを足すと結果が変わる():
-    a = render_thumbnail(BG, LINES)
-    b = render_thumbnail(BG, LINES, ribbon="「挑戦できます?」")
-    assert list(a.getdata()) != list(b.getdata())
-
-
-def test_2枚並べは指定サイズで返る():
-    from scripts.thumbnail import compose_faces
-    assert compose_faces([BG, BG], [0.3, 0.6]).size == (1280, 720)
+def test_元フレームの上部は使わない():
+    # 募集告知が写り込まない高さまで落としてから使う
+    from scripts.thumbnail import PHOTO_TOP
+    assert PHOTO_TOP >= 0.15
