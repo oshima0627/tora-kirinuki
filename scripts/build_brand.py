@@ -37,11 +37,13 @@ FONT_SANS = [
     r"C:\Windows\Fonts\msgothic.ttc",
 ]
 
-NAVY_TOP = (20, 27, 48)
-NAVY_BOTTOM = (9, 12, 24)
-AMBER = (240, 168, 60)
-LINE = (238, 242, 252)
-SUB = (150, 162, 196)
+# 令和の虎の意匠（赤いリング・筆文字ロゴ・人物シルエット・イナズマ）は使えない。
+# 誰の占有物でもない「赤・金・黒」の配色と、荒い筆致の質感だけを共有する。
+NAVY_TOP = (26, 18, 20)
+NAVY_BOTTOM = (12, 8, 10)
+AMBER = (214, 34, 42)          # 虎の地。令和の虎系の赤に寄せる
+LINE = (247, 243, 235)
+SUB = (196, 168, 150)
 
 BANNER_W, BANNER_H = 2560, 1440
 SAFE_W, SAFE_H = 1546, 423
@@ -81,11 +83,38 @@ def _ground(w: int, h: int) -> Image.Image:
     return img
 
 
-DARK = (12, 16, 30)
-AMBER_DEEP = (198, 126, 34)
+DARK = (22, 16, 16)
+AMBER_DEEP = (162, 22, 30)     # 耳の内側。地の赤を落とした色
+GOLD = (240, 176, 56)          # 額の棒グラフ。赤に対する差し色
 
-MUZZLE = (252, 214, 152)
+MUZZLE = (245, 232, 214)
 EYE_WHITE = (250, 246, 236)
+
+
+def _rough(points, amp: float, seed: int = 7):
+    """輪郭を筆致のようにギザつかせる。辺を分割して法線方向にずらす。
+
+    令和の虎のロゴは荒い筆文字で押している。書体そのものは使えないが、
+    「荒い」という質感は誰の占有物でもないので、そこだけ共有する。
+    """
+    import math
+    import random
+    rnd = random.Random(seed)
+    out = []
+    n = len(points)
+    for i in range(n):
+        x1, y1 = points[i]
+        x2, y2 = points[(i + 1) % n]
+        out.append((x1, y1))
+        dx, dy = x2 - x1, y2 - y1
+        length = math.hypot(dx, dy)
+        if length < 1e-6:
+            continue
+        nx, ny = -dy / length, dx / length          # 外向き法線
+        for t in (0.34, 0.67):
+            o = rnd.uniform(-amp, amp)
+            out.append((x1 + dx * t + nx * o, y1 + dy * t + ny * o))
+    return out
 
 # 虎の頭の輪郭。左右対称、(0,0)-(1,1) の正規化座標。
 # 耳の間をいったん凹ませると、猫ではなく虎の頭に見える。
@@ -134,22 +163,22 @@ def _tiger(size: int) -> Image.Image:
     P = lambda pts: [(x * s, y * s) for x, y in pts]  # noqa: E731
     B = lambda x1, x2, y1, y2: [x1 * s, y1 * s, x2 * s, y2 * s]  # noqa: E731
 
-    d.polygon(P(HEAD), fill=AMBER + (255,))
-    for ear in (EAR_L, EAR_R):
-        d.polygon(P(ear), fill=AMBER_DEEP + (255,))
+    d.polygon(P(_rough(HEAD, 0.012)), fill=AMBER + (255,))
+    for i, ear in enumerate((EAR_L, EAR_R)):
+        d.polygon(P(_rough(ear, 0.008, seed=11 + i)), fill=AMBER_DEEP + (255,))
 
     # 口まわりを明るくして、鼻と口を浮かせる
     d.ellipse(B(0.330, 0.670, 0.660, 0.900), fill=MUZZLE + (255,))
 
-    for st in CHEEK:
-        d.polygon(P(st), fill=DARK + (255,))
+    for i, st in enumerate(CHEEK):
+        d.polygon(P(_rough(st, 0.006, seed=20 + i)), fill=DARK + (255,))
 
     for cx, hr in FOREHEAD_BARS:
         top = BAR_BOTTOM - (BAR_BOTTOM - BAR_TOP) * hr
         d.rounded_rectangle(
             [(cx - BAR_W / 2) * s, top * s, (cx + BAR_W / 2) * s, BAR_BOTTOM * s],
             radius=int(s * 0.013),
-            fill=(LINE if hr == 1.0 else DARK) + (255,))
+            fill=(GOLD if hr == 1.0 else DARK) + (255,))
 
     for eye in (EYE_L, EYE_R):
         d.ellipse(B(*eye), fill=EYE_WHITE + (255,))
