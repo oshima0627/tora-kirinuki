@@ -94,7 +94,9 @@ def render_point(text: str, size: tuple[int, int] = SIZE) -> Image.Image:
     lines = wrap(d, text, f, w - m * 2 - int(w * 0.03))[:2]
 
     line_h = int(h * 0.082)
-    band_h = line_h * len(lines) + int(h * 0.048)
+    # 元動画は上部にも小さな注記と募集告知を出す。1行のときでも覆いきれるよう
+    # 最低の高さを決めておく。中途半端に覆うと相手の文字の下端だけが残って汚い
+    band_h = max(line_h * len(lines) + int(h * 0.048), int(h * 0.17))
     top = 0
 
     d.rectangle([0, top, w, top + band_h], fill=BG_TOP + (255,))
