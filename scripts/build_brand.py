@@ -5,7 +5,8 @@
   python scripts/build_brand.py --guide    # バナーに安全領域の枠を重ねた確認用も出す
 
 権利者のロゴ・画像・キャラクターは使わない（各社ガイドラインで禁止）。
-虎のモチーフも公式と誤認されうるので避け、「図解」そのものを図案にしている。
+虎はこのスクリプトで一から描き起こした図形で、権利者の意匠とは無関係。
+額の縞を右肩上がりの棒グラフにして、「虎」と「図解」を1つのマークにしている。
 
 ────────────────────────────────────────────────────────────
 バナーの寸法
@@ -80,17 +81,99 @@ def _ground(w: int, h: int) -> Image.Image:
     return img
 
 
-def _bars(img: Image.Image, x: int, y: int, unit: int, alpha: float = 1.0) -> None:
-    """図解の象徴として、伸びる棒グラフを描く。右肩上がりで「わかる」を示す。"""
-    d = ImageDraw.Draw(img, "RGBA")
-    heights = (0.38, 0.62, 1.0)
-    for i, hr in enumerate(heights):
-        bh = int(unit * 2.2 * hr)
-        bx = x + i * int(unit * 0.78)
-        col = AMBER if i == len(heights) - 1 else (108, 124, 168)
-        d.rounded_rectangle([bx, y - bh, bx + int(unit * 0.5), y],
-                            radius=int(unit * 0.12),
-                            fill=col + (int(255 * alpha),))
+DARK = (12, 16, 30)
+AMBER_DEEP = (198, 126, 34)
+
+MUZZLE = (252, 214, 152)
+EYE_WHITE = (250, 246, 236)
+
+# 虎の頭の輪郭。左右対称、(0,0)-(1,1) の正規化座標。
+# 耳の間をいったん凹ませると、猫ではなく虎の頭に見える。
+HEAD = [
+    (0.50, 0.15), (0.62, 0.10), (0.70, 0.11), (0.80, 0.00),
+    (0.88, 0.19), (0.97, 0.40), (1.00, 0.59), (0.92, 0.79),
+    (0.74, 0.95), (0.50, 1.00), (0.26, 0.95), (0.08, 0.79),
+    (0.00, 0.59), (0.03, 0.40), (0.12, 0.19), (0.20, 0.00),
+    (0.30, 0.11), (0.38, 0.10),
+]
+
+EAR_R = [(0.80, 0.045), (0.860, 0.170), (0.730, 0.125)]
+EAR_L = [(0.20, 0.045), (0.140, 0.170), (0.270, 0.125)]
+
+# 眉。目の上に角度をつけて置くと、虎らしい険しさが出る
+BROW_R = [(0.78, 0.455), (0.585, 0.505), (0.595, 0.555), (0.790, 0.510)]
+BROW_L = [(0.22, 0.455), (0.415, 0.505), (0.405, 0.555), (0.210, 0.510)]
+
+EYE_R = (0.585, 0.740, 0.575, 0.650)     # (x1, x2, y1, y2)
+EYE_L = (0.260, 0.415, 0.575, 0.650)
+PUPIL_R = (0.640, 0.690, 0.585, 0.645)
+PUPIL_L = (0.310, 0.360, 0.585, 0.645)
+
+NOSE = [(0.425, 0.680), (0.575, 0.680), (0.500, 0.770)]
+
+# 頬の縞。先を細らせたいので線ではなく多角形で持つ
+CHEEK = [
+    [(0.000, 0.520), (0.150, 0.480), (0.150, 0.520), (0.005, 0.560)],
+    [(0.015, 0.640), (0.160, 0.605), (0.158, 0.645), (0.030, 0.680)],
+    [(1.000, 0.520), (0.850, 0.480), (0.850, 0.520), (0.995, 0.560)],
+    [(0.985, 0.640), (0.840, 0.605), (0.842, 0.645), (0.970, 0.680)],
+]
+
+# 額の縞 = 右肩上がりの棒グラフ。(中心x, 高さ比)
+# 右肩上がりの塊は重心が右に寄るので、幾何中心より少し左に置いて見た目を釣り合わせる
+FOREHEAD_BARS = [(0.348, 0.42), (0.463, 0.68), (0.578, 1.00)]
+BAR_TOP, BAR_BOTTOM, BAR_W = 0.205, 0.415, 0.072
+
+
+def _tiger(size: int) -> Image.Image:
+    """虎の頭を RGBA で返す。4倍で描いて縮小し、輪郭を滑らかにする。"""
+    ss = 4
+    s = size * ss
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    P = lambda pts: [(x * s, y * s) for x, y in pts]  # noqa: E731
+    B = lambda x1, x2, y1, y2: [x1 * s, y1 * s, x2 * s, y2 * s]  # noqa: E731
+
+    d.polygon(P(HEAD), fill=AMBER + (255,))
+    for ear in (EAR_L, EAR_R):
+        d.polygon(P(ear), fill=AMBER_DEEP + (255,))
+
+    # 口まわりを明るくして、鼻と口を浮かせる
+    d.ellipse(B(0.330, 0.670, 0.660, 0.900), fill=MUZZLE + (255,))
+
+    for st in CHEEK:
+        d.polygon(P(st), fill=DARK + (255,))
+
+    for cx, hr in FOREHEAD_BARS:
+        top = BAR_BOTTOM - (BAR_BOTTOM - BAR_TOP) * hr
+        d.rounded_rectangle(
+            [(cx - BAR_W / 2) * s, top * s, (cx + BAR_W / 2) * s, BAR_BOTTOM * s],
+            radius=int(s * 0.013),
+            fill=(LINE if hr == 1.0 else DARK) + (255,))
+
+    for eye in (EYE_L, EYE_R):
+        d.ellipse(B(*eye), fill=EYE_WHITE + (255,))
+    for pup in (PUPIL_L, PUPIL_R):
+        d.ellipse(B(*pup), fill=DARK + (255,))
+    for brow in (BROW_L, BROW_R):
+        d.polygon(P(brow), fill=DARK + (255,))
+
+    d.polygon(P(NOSE), fill=DARK + (255,))
+
+    # 口。鼻先から下ろした短い縦線と、その左右に垂れる2つの弧（‿‿）
+    w = int(s * 0.026)
+    d.line([0.500 * s, 0.760 * s, 0.500 * s, 0.800 * s], fill=DARK + (255,), width=w)
+    d.arc(B(0.395, 0.505, 0.755, 0.855), 0, 180, fill=DARK + (255,), width=w)
+    d.arc(B(0.495, 0.605, 0.755, 0.855), 0, 180, fill=DARK + (255,), width=w)
+
+    return img.resize((size, size), Image.LANCZOS)
+
+
+def _place_tiger(img: Image.Image, x: int, cy: int, d: int) -> int:
+    """虎の頭を左上x・垂直中心cyに置き、右端のxを返す。"""
+    tiger = _tiger(d)
+    img.paste(tiger, (x, cy - d // 2), tiger)
+    return x + d
 
 
 def build_icon(size: int = 800) -> Path:
@@ -103,14 +186,11 @@ def build_icon(size: int = 800) -> Path:
     from PIL import ImageChops
     img = ImageChops.screen(img, glow.filter(ImageFilter.GaussianBlur(size // 9)))
 
-    unit = int(size * 0.13)
-    _bars(img, int(size * 0.30), int(size * 0.50), unit)
-
-    d = ImageDraw.Draw(img)
-    f = fit_font(d, "図解", int(size * 0.62), int(size * 0.30))
-    b = d.textbbox((0, 0), "図解", font=f)
-    d.text(((size - (b[2] - b[0])) // 2 - b[0], int(size * 0.56)), "図解",
-           font=f, fill=LINE)
+    # アイコンは24px程度でも判別できる必要があるので、虎の頭だけを大きく置く。
+    # 「図解」の文字はチャンネル名が担うので入れない。
+    d = int(size * 0.76)
+    tiger = _tiger(d)
+    img.paste(tiger, ((size - d) // 2, int(size * 0.10)), tiger)
 
     OUT.mkdir(parents=True, exist_ok=True)
     p = OUT / "icon.png"
@@ -131,11 +211,12 @@ def build_banner(guide: bool = False) -> Path:
     from PIL import ImageChops
     img = ImageChops.screen(img, glow.filter(ImageFilter.GaussianBlur(180)))
 
-    unit = int(BANNER_H * 0.075)
-    _bars(img, SAFE[0] + 40, BANNER_H // 2 + int(BANNER_H * 0.055), unit)
+    # 耳まで安全領域に収める。はみ出すとスマホで切れる
+    tiger_d = int(SAFE_H * 0.82)
+    right = _place_tiger(img, SAFE[0] + 50, BANNER_H // 2, tiger_d)
 
     d = ImageDraw.Draw(img)
-    tx = SAFE[0] + 40 + int(unit * 2.6) + 90
+    tx = right + 80
     avail = SAFE[2] - tx - 30
 
     f_title = fit_font(d, TITLE, avail, 150)
