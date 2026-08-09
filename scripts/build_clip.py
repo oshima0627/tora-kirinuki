@@ -82,6 +82,29 @@ def _still(png: Path, out: Path, seconds: float) -> None:
           "-vf", "scale=1920:1080", str(out)])
 
 
+def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
+    """サムネイルを作る。
+
+    recipe に thumb があれば元映像のフレームに極太文字を載せる（競合の型）。
+    無ければ案件カードをそのまま使う。
+    """
+    thumb = recipe.get("thumb")
+    if not thumb:
+        render_brief(recipe["cards"]["brief"], size=(1280, 720)).save(out / "thumb.png")
+        return
+
+    from PIL import Image
+
+    from scripts.thumbnail import render_thumbnail
+
+    frame = out / "_thumbsrc.png"
+    _run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{thumb['at']}",
+          "-i", str(src / "source.mp4"), "-frames:v", "1", str(frame)])
+    render_thumbnail(Image.open(frame), thumb.get("line1", ""),
+                     thumb.get("line2", ""), thumb.get("badge", "")
+                     ).save(out / "thumb.png")
+
+
 def build(recipe_path: Path, dry_run: bool = False) -> Path:
     recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
     src = source_dir(recipe["source_video_id"])
@@ -152,7 +175,7 @@ def build(recipe_path: Path, dry_run: bool = False) -> Path:
         raise SystemExit(f"! 尺が合わない: 期待 {expected:.1f}s / 実測 {actual:.1f}s")
 
     (out / "description.txt").write_text(build_description(recipe), encoding="utf-8")
-    render_brief(recipe["cards"]["brief"], size=(1280, 720)).save(out / "thumb.png")
+    _thumbnail(recipe, src, out)
     (out / "meta.json").write_text(json.dumps({
         "id": recipe["id"],
         "title": recipe["title"],
