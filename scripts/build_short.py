@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.build_clip import probe_duration  # noqa: E402
-from scripts.cards import (SHORT_SIZE, SHORT_VIDEO, SHORT_VIDEO_Y,  # noqa: E402
+from scripts.cards import (SHORT_BOTTOM, SHORT_SIZE, SHORT_TOP,  # noqa: E402
                            render_short_frame)
 from scripts.fetch_source import source_dir  # noqa: E402
 from scripts.recipe import build_description, validate, validate_short  # noqa: E402
@@ -77,19 +77,24 @@ def build(recipe_path: Path, dry_run: bool = False) -> Path:
 
     out.mkdir(parents=True, exist_ok=True)
     frame = out / "frame.png"
-    render_short_frame(short["hook"], short.get("footer", "")).save(frame)
+    render_short_frame(short.get("head"), short.get("quote")).save(frame)
 
     w, h = SHORT_SIZE
-    vw, vh = SHORT_VIDEO
+    vy = int(h * SHORT_TOP)
+    vh = h - vy - int(h * SHORT_BOTTOM)
     video = out / "video.mp4"
-    # クロップしない。16:9のまま幅1080に合わせ、縦1920に敷いてから下地を上に重ねる。
-    # 下地の映像部分は透過なので映像が見える。尺は -t で明示する
+    # **縦にトリミングして顔を大きくする。** 16:9をそのまま幅に合わせると
+    # 映像が小さくなり、縦型として弱い（競合の上位はどれも大きく寄せている）。
+    # 上下の黒帯が元動画の告知と字幕を覆うので、二重にもならない
+    ar = w / vh
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{start}",
          "-i", str(src / "source.mp4"), "-i", str(frame), "-t", f"{length}",
          "-filter_complex",
-         f"[0:v]scale={vw}:{vh},fps={FPS},"
-         f"pad={w}:{h}:0:{SHORT_VIDEO_Y}:color=white[bg];"
+         # 元動画のテロップが映像領域に写り込むのは許容する。
+         # 先に落とすと寄りすぎて顔が切れるため（実ビルドで確認）
+         f"[0:v]crop='min(iw,ih*{ar:.4f})':'min(ih,iw/{ar:.4f})',"
+         f"scale={w}:{vh},fps={FPS},pad={w}:{h}:0:{vy}:color=black[bg];"
          f"[bg][1:v]overlay=0:0[out]",
          "-map", "[out]", "-map", "0:a",
          "-c:v", "libx264", "-preset", "medium", "-crf", "20",

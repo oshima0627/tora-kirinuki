@@ -111,56 +111,77 @@ def render_point(text: str, size: tuple[int, int] = SIZE) -> Image.Image:
 
 # 縦型（Shorts）。
 #
-# 元映像は16:9。**クロップしない。** 中央を1:1で抜くと、令和の虎Secondが
-# 画面の端に出す氏名テロップや告知が途中で切れて雑に見える（実ビルドで確認）。
-# 幅いっぱいに16:9のまま置き、余った上下を図解に使う。
-# 映像は小さくなるが、「図解でわかる」を名乗る以上そちらが本体になる。
+# 競合の上位ショートを落として採寸した型に合わせる。
+#
+#   上部の黒帯   見出し2行（白＋赤の混色、太い黒縁）
+#   中央の映像   **16:9を縦にトリミングして顔を大きく**。ここが一番効く
+#   下部の黒帯   発言をそのまま字幕で
+#
+# 16:9をそのまま幅に合わせると映像が小さくなり、縦型として弱い。
+# 上下の黒帯は元動画の告知と字幕を覆い隠す役割も兼ねる。
 SHORT_SIZE = (1080, 1920)
-SHORT_VIDEO = (1080, 608)    # 16:9 を幅1080に合わせた実寸
-SHORT_VIDEO_Y = 560
+SHORT_TOP = 0.24             # 上の黒帯
+SHORT_BOTTOM = 0.24          # 下の黒帯
+SHORT_INK = (250, 250, 252)
+SHORT_RED = (240, 40, 44)
+SHORT_COLORS = {"w": SHORT_INK, "r": SHORT_RED, "y": (255, 226, 60)}
 
 
-def render_short_frame(hook: str, footer: str,
+def _short_row(d: ImageDraw.ImageDraw, segs: list[dict], cx: int, baseline: int,
+               size: int) -> None:
+    f = pick_font(size)
+    total = sum(int(d.textlength(x["t"], font=f)) for x in segs)
+    x = cx - total // 2
+    for seg in segs:
+        col = SHORT_COLORS.get(seg.get("c", "w"), SHORT_INK)
+        d.text((x, baseline), seg["t"], font=f, fill=col, anchor="ls",
+               stroke_width=max(6, size // 8), stroke_fill=(0, 0, 0))
+        d.text((x, baseline), seg["t"], font=f, fill=col, anchor="ls")
+        x += int(d.textlength(seg["t"], font=f))
+
+
+def _short_fit(d: ImageDraw.ImageDraw, rows: list[list[dict]], max_w: int,
+               start: int) -> int:
+    size = start
+    while size > 26:
+        if all(sum(int(d.textlength(x["t"], font=pick_font(size))) for x in r)
+               + size // 2 <= max_w for r in rows):
+            return size
+        size -= 3
+    return 26
+
+
+def render_short_frame(head: list[list[dict]] | None = None,
+                       quote: list[list[dict]] | None = None,
                        size: tuple[int, int] = SHORT_SIZE) -> Image.Image:
     """縦型の下地。映像を重ねる中央部分は透過にして返す。"""
     w, h = size
-    vy, vh = SHORT_VIDEO_Y, SHORT_VIDEO[1]
+    top_h, bot_y = int(h * SHORT_TOP), int(h * (1 - SHORT_BOTTOM))
 
-    img = Image.new("RGBA", size, BG_TOP + (255,))
+    img = Image.new("RGBA", size, (0, 0, 0, 255))
     d = ImageDraw.Draw(img)
+    d.rectangle([0, top_h, w, bot_y], fill=(0, 0, 0, 0))     # 映像の穴
 
-    # 映像の穴。ここに overlay する
-    d.rectangle([0, vy, w, vy + vh], fill=(0, 0, 0, 0))
-
-    m = int(w * 0.075)
+    m = int(w * 0.05)
     avail = w - m * 2
 
-    # 上：フック。冒頭2秒で読ませるので大きく
-    d.rectangle([0, 0, int(w * 0.018), vy], fill=RED + (255,))
-    hook = (hook or "").strip()
-    if hook:
-        f = pick_font(int(h * 0.044))
-        lines = wrap(d, hook, f, avail)[:4]
-        line_h = int(h * 0.055)
-        y = max(int(h * 0.03), (vy - line_h * len(lines)) // 2)
-        for ln in lines:
-            d.text((m, y), ln, font=f, fill=INK + (255,))
-            y += line_h
+    head = [r for r in (head or []) if r]
+    if head:
+        s = _short_fit(d, head, avail, int(h * 0.048))
+        lh = int(s * 1.28)
+        y = (top_h - lh * len(head)) // 2 + int(s * 0.95)
+        for row in head:
+            _short_row(d, row, w // 2, y, s)
+            y += lh
 
-    # 下：図解。映像が小さいぶんここが本体になる
-    by = vy + vh
-    d.rectangle([m, by + int(h * 0.040), m + avail, by + int(h * 0.040) + 6],
-                fill=GOLD + (255,))
-    footer = (footer or "").strip()
-    if footer:
-        f = pick_font(int(h * 0.040))
-        y = by + int(h * 0.085)
-        for ln in wrap(d, footer, f, avail)[:5]:
-            d.text((m, y), ln, font=f, fill=INK + (255,))
-            y += int(h * 0.052)
-
-    d.text((m, h - int(h * 0.048)), "続きは本編で｜図解でわかる令和の虎",
-           font=pick_font(int(h * 0.022)), fill=MUTED + (255,))
+    quote = [r for r in (quote or []) if r]
+    if quote:
+        s = _short_fit(d, quote, avail, int(h * 0.042))
+        lh = int(s * 1.3)
+        y = bot_y + (h - bot_y - lh * len(quote)) // 2 + int(s * 0.95)
+        for row in quote:
+            _short_row(d, row, w // 2, y, s)
+            y += lh
     return img
 
 

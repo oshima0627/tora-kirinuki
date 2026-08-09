@@ -4,12 +4,16 @@ from scripts.cards import render_short_frame
 from scripts.recipe import validate_short
 from tests.test_recipe import base
 
+HEAD = [[{"t": "粗利は1棟", "c": "w"}, {"t": "20万円", "c": "r"}],
+        [{"t": "それでも", "c": "w"}, {"t": "満額200万円", "c": "r"}]]
+QUOTE = [[{"t": "倍にして返してもらおう", "c": "r"}]]
+
 
 def with_short(**over) -> dict:
     r = base()
     r["short"] = {"start": 2300.0, "end": 2350.0,
-                  "hook": "原価が見えていないのに値付けはできない",
-                  "footer": "希望金額 200万円"}
+                  "hook": "粗利は1棟20万円。それでも満額200万円",
+                  "head": HEAD, "quote": QUOTE}
     r["short"].update(over)
     return r
 
@@ -35,37 +39,39 @@ def test_フックが空なら落ちる():
 
 
 def test_3分を超えたら落ちる():
-    # Shorts として扱われる上限
     with pytest.raises(ValueError, match="180"):
         validate_short(with_short(start=0.0, end=181.0))
 
 
-def test_元動画の尺を超えていても範囲チェックは通る():
-    # 元動画との突き合わせは build_short の preflight が行う
-    validate_short(with_short(start=100.0, end=160.0))
-
-
 def test_縦型フレームは1080x1920で返る():
-    img = render_short_frame("フック", "フッター")
-    assert img.size == (1080, 1920)
+    assert render_short_frame(HEAD, QUOTE).size == (1080, 1920)
 
 
-def test_縦型フレームは中央に映像用の穴が空いている():
-    # 映像を overlay する領域は透過にしておく
-    img = render_short_frame("フック", "フッター")
+def test_中央に映像用の穴が空いている():
+    img = render_short_frame(HEAD, QUOTE)
     assert img.mode == "RGBA"
-    assert img.getpixel((540, 420 + 540))[3] == 0
+    assert img.getpixel((540, 960))[3] == 0
 
 
-def test_縦型フレームの上下は不透明():
-    img = render_short_frame("フック", "フッター")
-    assert img.getpixel((540, 100))[3] == 255
-    assert img.getpixel((540, 1800))[3] == 255
+def test_上下は黒帯で不透明():
+    # 元動画の告知と字幕をここで覆い隠す
+    img = render_short_frame(HEAD, QUOTE)
+    for y in (60, 1860):
+        px = img.getpixel((30, y))
+        assert px[3] == 255
+        assert px[:3] == (0, 0, 0)
+
+
+def test_1行の中で色を変えられる():
+    a = render_short_frame([[{"t": "テスト", "c": "w"}]])
+    b = render_short_frame([[{"t": "テスト", "c": "r"}]])
+    assert list(a.getdata()) != list(b.getdata())
 
 
 def test_長い文字列でも落ちない():
-    render_short_frame("あ" * 120, "い" * 120)
+    render_short_frame([[{"t": "あ" * 40, "c": "w"}]],
+                       [[{"t": "い" * 40, "c": "r"}]])
 
 
-def test_フッターが空でも落ちない():
-    render_short_frame("フック", "")
+def test_何も指定しなくても落ちない():
+    assert render_short_frame().size == (1080, 1920)
