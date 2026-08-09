@@ -1,0 +1,27 @@
+{
+  "id": "2026-08-10-example",
+  "source_video_id": "TuYYB2N0JGE",
+  "source_url": "https://www.youtube.com/watch?v=TuYYB2N0JGE",
+  "source_title": "【FULL】｢お前には何も任せられない｣家づくりを語る材木屋に虎が激怒【齋藤 匠】[77人目]関西版令和の虎",
+  "clip": { "start": 2210.0, "end": 2623.0 },
+  "cards": {
+    "brief": {
+      "amount": "希望金額 200万円",
+      "business": "ここに事業内容を書く",
+      "profile": "ここに志願者の経歴を書く"
+    },
+    "points": [
+      { "at": 2300.0, "text": "虎の指摘を1行に圧縮して書く" }
+    ],
+    "verdict": {
+      "result": "成立",
+      "detail": "誰がいくら出したか。決裂ならその理由"
+    }
+  },
+  "title": "ここに動画タイトルを書く",
+  "description": "ここに概要欄の本文を書く。元動画のURLとタイトルは自動で冒頭に挿入されるので書かなくてよい。",
+  "tags": ["令和の虎", "令和の虎Second", "切り抜き"],
+  "category_id": "22",
+  "expected_channel_id": "UCVrCOqLMVJhdciCFUSg0TOw",
+  "privacy_status": "private"
+}
