@@ -176,8 +176,9 @@ def render_short_frame(head: list[list[dict]] | None = None,
 
     quote = [r for r in (quote or []) if r]
     if quote:
-        s = _short_fit(d, quote, avail, int(h * 0.042))
-        lh = int(s * 1.3)
+        # 下の字幕は見出しより大きくする。縦型では発言が主役になる
+        s = _short_fit(d, quote, avail, int(h * 0.065))
+        lh = int(s * 1.22)
         y = bot_y + (h - bot_y - lh * len(quote)) // 2 + int(s * 0.95)
         for row in quote:
             _short_row(d, row, w // 2, y, s)
