@@ -14,8 +14,14 @@ from __future__ import annotations
 REQUIRED = ("id", "source_video_id", "source_url", "source_title",
             "title", "expected_channel_id")
 
-CREDIT = ("本チャンネルはガジェット通信クリエイターネットワークを通じて"
-          "切り抜き動画の許諾を得て運営しています。")
+# 「許諾を得て運営」とは書かない。権利者は「あくまでご本人は黙認」という扱いで、
+# ガイドラインでも「公認」「公式」表記を禁じている（2026-08-09 の受付メールで確認）。
+# 申請済みという事実だけを書く。
+CREDIT = ("本チャンネルはガジェット通信クリエイターネットワークに"
+          "申請済みの切り抜きチャンネルです。公式チャンネルではありません。")
+
+# 出演者の名誉・信用を害する表記は禁止されている。タイトル生成時の下限ガード
+BANNED_IN_TITLE = ("公式", "公認", "マネーの虎")
 
 
 def validate(recipe: dict) -> None:
@@ -34,6 +40,13 @@ def validate(recipe: dict) -> None:
         raise ValueError(
             "cards.brief.amount が空。字幕はASRで金額が崩れるため、"
             "映像で裏取りした金額を入れること")
+
+    # ガイドラインで「公認」「公式」表記と「マネーの虎」を想起させる表現が禁止
+    title = recipe["title"]
+    hit = next((w for w in BANNED_IN_TITLE if w in title), None)
+    if hit:
+        raise ValueError(
+            f"タイトルに「{hit}」が入っている。ガイドラインで禁止されている表現")
 
 
 def build_description(recipe: dict) -> str:

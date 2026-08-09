@@ -76,8 +76,24 @@ def test_概要欄に本文が含まれる():
     assert "本文" in build_description(base())
 
 
-def test_概要欄に許諾の経路が明記される():
+def test_概要欄に申請済みである旨が入る():
     assert "ガジェット通信" in build_description(base())
+
+
+def test_概要欄で公認や許諾を主張しない():
+    # 権利者は「あくまでご本人は黙認」という扱いで、公式・公認表記を禁じている
+    d = build_description(base())
+    assert "公認" not in d
+    assert "許諾を得て" not in d
+    assert "公式チャンネルではありません" in d
+
+
+def test_タイトルに公認や公式が入っていたら落ちる():
+    for word in ("公式", "公認", "マネーの虎"):
+        r = base()
+        r["title"] = f"【{word}】切り抜き"
+        with pytest.raises(ValueError, match=word):
+            validate(r)
 
 
 def test_タグはハッシュタグとして末尾に付く():
