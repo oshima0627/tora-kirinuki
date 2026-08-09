@@ -73,7 +73,15 @@ def render_brief(brief: dict, size: tuple[int, int] = SIZE) -> Image.Image:
 
 
 def render_point(text: str, size: tuple[int, int] = SIZE) -> Image.Image:
-    """論点カード。映像に重ねるので下部の帯だけを描いた透過画像を返す。"""
+    """論点カード。映像に重ねるので帯だけを描いた透過画像を返す。
+
+    **帯は画面上部に置く。** 令和の虎Secondは画面下部に大きなテロップを常時
+    焼き込んでいるので、下に置くと必ずぶつかる。実ビルドで確認したところ、
+    帯からはみ出した元の文字が上下に残って両方読めなくなった。
+    上部にあるのは小さな注記と募集告知だけなので、こちらのほうが被害が小さい。
+
+    帯は不透明にする。半透明だと下の文字が透けて同じことが起きる。
+    """
     w, h = size
     img = Image.new("RGBA", size, (0, 0, 0, 0))
     text = (text or "").strip()
@@ -87,10 +95,8 @@ def render_point(text: str, size: tuple[int, int] = SIZE) -> Image.Image:
 
     line_h = int(h * 0.082)
     band_h = line_h * len(lines) + int(h * 0.048)
-    top = h - band_h - int(h * 0.055)
+    top = 0
 
-    # 帯は不透明にする。半透明にすると元動画の氏名テロップが透けて重なり、
-    # こちらの文字も相手の文字も読めなくなる（実測で確認）
     d.rectangle([0, top, w, top + band_h], fill=BG_TOP + (255,))
     d.rectangle([0, top, int(w * 0.014), top + band_h], fill=RED + (255,))
 

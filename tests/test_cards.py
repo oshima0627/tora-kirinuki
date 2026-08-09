@@ -15,12 +15,22 @@ def test_案件カードはサイズを変えられる():
 def test_論点カードは帯以外が透過で返る():
     # 映像に重ねるので、帯以外は抜けている必要がある
     img = render_point("原価が見えていないのに値付けはできない")
+    w, h = img.size
     assert img.mode == "RGBA"
-    assert img.getpixel((10, 10))[3] == 0
+    assert img.getpixel((w // 2, h // 2))[3] == 0
+
+
+def test_論点カードの帯は画面上部にある():
+    # 令和の虎Secondは画面下部に大きなテロップを常時焼き込んでいる。
+    # 下に置くと必ずぶつかって両方読めなくなる（実ビルドで確認）
+    img = render_point("原価が見えていないのに値付けはできない")
+    w, h = img.size
+    assert img.getpixel((w // 2, 10))[3] == 255
+    assert img.getpixel((w // 2, h - 10))[3] == 0
 
 
 def test_論点カードの帯は不透明():
-    # 半透明にすると元動画の氏名テロップが透けて重なり、両方読めなくなる
+    # 半透明だと下の文字が透けて重なり、両方読めなくなる
     img = render_point("原価が見えていないのに値付けはできない")
     w, h = img.size
     band = [img.getpixel((w // 2, y))[3] for y in range(h)]
