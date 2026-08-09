@@ -49,6 +49,28 @@ def validate(recipe: dict) -> None:
             f"タイトルに「{hit}」が入っている。ガイドラインで禁止されている表現")
 
 
+SHORT_MAX_SEC = 180.0     # Shorts として扱われる上限
+
+
+def validate_short(recipe: dict) -> None:
+    """ショートの区間を検証する。長尺と同じレシピから作るので共通項目は validate に任せる。"""
+    short = recipe.get("short")
+    if not short:
+        raise ValueError("レシピに short がない。ショートを作るには short が要る")
+
+    start, end = short.get("start"), short.get("end")
+    if start is None or end is None or end <= start:
+        raise ValueError(f"short.clip の範囲が不正: start={start} end={end}")
+    if end - start > SHORT_MAX_SEC:
+        raise ValueError(
+            f"short が {end - start:.0f}秒。Shorts の上限 {SHORT_MAX_SEC:.0f}秒を超えている")
+
+    if not (short.get("hook") or "").strip():
+        raise ValueError(
+            "short.hook が空。縦型は冒頭2秒で離脱が決まるので、"
+            "フック無しで出す意味がない")
+
+
 def build_description(recipe: dict) -> str:
     """概要欄。冒頭の元動画URL・タイトルは手書きさせず、ここで必ず付ける。"""
     body = (recipe.get("description") or "").strip()

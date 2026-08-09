@@ -26,10 +26,14 @@
 1. fetch_source.py    本編DL + 日本語字幕 + メタ    → work/<video_id>/
 2. probe_signals.py   音量 + 語彙 + コメント + 熱   → signals.json
 3. find_moments.py    4信号の合成で候補区間を抽出   → candidates.json
-   ↓ recipes/<id>.json を作る
-4. build_clip.py      カット + 図解カード合成       → work/<id>/video.mp4
+   ↓ recipes/<id>.json を作る（長尺とショートで共有）
+4. build_clip.py      横型・カット + 図解カード     → work/<id>/video.mp4
+   build_short.py     縦型・16:9 + 上下に図解       → work/<id>-short/video.mp4
 5. upload_youtube.py  private → 内容確認 → --publish
 ```
+
+1つのレシピから**長尺とショートの両方**を作る。ショートで見つけてもらい、
+長尺へ送る導線にしている。
 
 手順は [`docs/daily-workflow.md`](docs/daily-workflow.md)。
 

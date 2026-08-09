@@ -101,6 +101,61 @@ def render_point(text: str, size: tuple[int, int] = SIZE) -> Image.Image:
     return img
 
 
+# 縦型（Shorts）。
+#
+# 元映像は16:9。**クロップしない。** 中央を1:1で抜くと、令和の虎Secondが
+# 画面の端に出す氏名テロップや告知が途中で切れて雑に見える（実ビルドで確認）。
+# 幅いっぱいに16:9のまま置き、余った上下を図解に使う。
+# 映像は小さくなるが、「図解でわかる」を名乗る以上そちらが本体になる。
+SHORT_SIZE = (1080, 1920)
+SHORT_VIDEO = (1080, 608)    # 16:9 を幅1080に合わせた実寸
+SHORT_VIDEO_Y = 560
+
+
+def render_short_frame(hook: str, footer: str,
+                       size: tuple[int, int] = SHORT_SIZE) -> Image.Image:
+    """縦型の下地。映像を重ねる中央部分は透過にして返す。"""
+    w, h = size
+    vy, vh = SHORT_VIDEO_Y, SHORT_VIDEO[1]
+
+    img = Image.new("RGBA", size, BG_TOP + (255,))
+    d = ImageDraw.Draw(img)
+
+    # 映像の穴。ここに overlay する
+    d.rectangle([0, vy, w, vy + vh], fill=(0, 0, 0, 0))
+
+    m = int(w * 0.075)
+    avail = w - m * 2
+
+    # 上：フック。冒頭2秒で読ませるので大きく
+    d.rectangle([0, 0, int(w * 0.018), vy], fill=RED + (255,))
+    hook = (hook or "").strip()
+    if hook:
+        f = pick_font(int(h * 0.044))
+        lines = wrap(d, hook, f, avail)[:4]
+        line_h = int(h * 0.055)
+        y = max(int(h * 0.03), (vy - line_h * len(lines)) // 2)
+        for ln in lines:
+            d.text((m, y), ln, font=f, fill=INK + (255,))
+            y += line_h
+
+    # 下：図解。映像が小さいぶんここが本体になる
+    by = vy + vh
+    d.rectangle([m, by + int(h * 0.040), m + avail, by + int(h * 0.040) + 6],
+                fill=GOLD + (255,))
+    footer = (footer or "").strip()
+    if footer:
+        f = pick_font(int(h * 0.040))
+        y = by + int(h * 0.085)
+        for ln in wrap(d, footer, f, avail)[:5]:
+            d.text((m, y), ln, font=f, fill=INK + (255,))
+            y += int(h * 0.052)
+
+    d.text((m, h - int(h * 0.048)), "続きは本編で｜図解でわかる令和の虎",
+           font=pick_font(int(h * 0.022)), fill=MUTED + (255,))
+    return img
+
+
 def render_verdict(verdict: dict, size: tuple[int, int] = SIZE) -> Image.Image:
     """判定カード。誰がいくら出したか。決裂ならその理由。"""
     w, h = size

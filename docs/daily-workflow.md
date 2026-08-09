@@ -117,21 +117,45 @@ python scripts/find_moments.py <video_id> --count 5 --length 420
 
 ### 5. ビルドする
 
+長尺とショートを**同じレシピから**作ります。素材・候補・カードの文言を共有できるので、
+ショートを足しても調べ直しが要りません。
+
 ```bash
-python scripts/build_clip.py recipes/<id>.json --dry-run
-python scripts/build_clip.py recipes/<id>.json
+python scripts/build_clip.py  recipes/<id>.json --dry-run
+python scripts/build_clip.py  recipes/<id>.json     # → work/<id>/
+python scripts/build_short.py recipes/<id>.json     # → work/<id>-short/
 ```
 
-`work/<id>/video.mp4` を再生して、カードの位置と尺を目で確かめてください。
+再生して、カードの位置と尺を目で確かめてください。
+
+**ショートは `short` ブロックが要ります。**
+
+| 項目 | 意味 |
+| --- | --- |
+| `start` / `end` | 切り出す区間。**180秒以内**（超えると `validate_short` が落とす） |
+| `hook` | 上部に出す一文。**空だとビルドできない**（縦型は冒頭2秒で離脱が決まる） |
+| `footer` | 下部の図解。金額や判定など、映像だけでは分からない情報 |
+| `title` | 省略すると `hook` が使われる |
+
+**縦型では映像をクロップしません。** 中央を1:1で抜くと、令和の虎Secondが画面の端に出す
+氏名テロップや告知が途中で切れて雑に見えます（実ビルドで確認しました）。
+16:9のまま幅いっぱいに置き、余った上下を図解に使っています。
+映像は小さくなりますが、「図解でわかる」を名乗る以上そちらが本体です。
 
 ### 6. 投稿する
 
 ```bash
-python scripts/upload_youtube.py work/<id>            # private
-python scripts/upload_youtube.py work/<id> --publish  # 内容確認後に公開
+python scripts/upload_youtube.py work/<id>                  # 長尺 private
+python scripts/upload_youtube.py work/<id> --publish
+python scripts/upload_youtube.py work/<id>-short            # ショート private
+python scripts/upload_youtube.py work/<id>-short --publish
 ```
 
 `expected_channel_id` が一致しないとアップロードしません。
+ショートには `#Shorts` タグが自動で付きます（無いと縦型でもショート棚に乗らないことがあります）。
+
+**出す順番はショートが先です。** ショートで見つけてもらい、概要欄と末尾の導線で
+長尺へ送る形にすると、長尺の総再生時間（YPPの3,000時間）が積みやすくなります。
 
 ## 気をつけること
 

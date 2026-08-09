@@ -3,7 +3,10 @@
   "source_video_id": "TuYYB2N0JGE",
   "source_url": "https://www.youtube.com/watch?v=TuYYB2N0JGE",
   "source_title": "【FULL】｢お前には何も任せられない｣家づくりを語る材木屋に虎が激怒【齋藤 匠】[77人目]関西版令和の虎",
-  "clip": { "start": 2210.0, "end": 2623.0 },
+  "clip": {
+    "start": 2210.0,
+    "end": 2623.0
+  },
   "cards": {
     "brief": {
       "amount": "希望金額 200万円",
@@ -11,7 +14,10 @@
       "profile": "【要裏取り】材木屋の後継"
     },
     "points": [
-      { "at": 2300.0, "text": "【要裏取り】ここに虎の指摘を1行で書く" }
+      {
+        "at": 2300.0,
+        "text": "【要裏取り】ここに虎の指摘を1行で書く"
+      }
     ],
     "verdict": {
       "result": "【要裏取り】判定",
@@ -20,8 +26,18 @@
   },
   "title": "【技術検証用・非公開】令和の虎Second 切り抜きテスト",
   "description": "パイプラインの動作確認用。カードの内容は未裏取りのため公開しない。",
-  "tags": ["令和の虎", "切り抜き"],
+  "tags": [
+    "令和の虎",
+    "切り抜き"
+  ],
   "category_id": "22",
   "expected_channel_id": "UCVrCOqLMVJhdciCFUSg0TOw",
-  "privacy_status": "private"
+  "privacy_status": "private",
+  "short": {
+    "start": 2300.0,
+    "end": 2345.0,
+    "hook": "【要裏取り】ここに冒頭2秒で効くフックを書く",
+    "footer": "希望金額 200万円 ／ 判定は本編で",
+    "title": "【技術検証用・非公開】ショートのテスト"
+  }
 }
