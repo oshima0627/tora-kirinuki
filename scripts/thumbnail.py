@@ -80,42 +80,102 @@ def crop_panel(bg: Image.Image, x: float, out: tuple[int, int]) -> Image.Image:
     return bg.crop((left, top, left + keep_w, top + keep_h)).resize(out, Image.LANCZOS)
 
 
-def compose_faces(frames: list[Image.Image], xs: list[float | None] | None = None,
-                  size: tuple[int, int] = SIZE, cut: bool = False) -> Image.Image:
-    """掛け合いの2人を左右に全高で並べる。
+def largest_part(person: Image.Image) -> Image.Image:
+    """一番大きい塊だけを残す。
 
-    **既定は全面写真（cut=False）。** 競合の2人掛け合い型は切り抜きではなく
-    全面写真を並べている。切り抜きを使うのは多人数コラージュ型のほう。
-    実際に抜いてみたところ、人物が端に寄ったパネルでは分離に失敗した。
-    cut=True にすると、ぼかした背景の上に抜いた人物を置く。
+    切り抜きは元動画の告知テロップのような高コントラストの断片も拾う。
+    人物本体だけを残せば、浮いた文字が消える。
+    """
+    try:
+        import numpy as np
+    except ImportError:
+        return person
+
+    a = np.array(person)[:, :, 3] > 40
+    if not a.any():
+        return person
+
+    step = max(1, min(a.shape) // 200)          # 粗い格子で走査して速くする
+    small = a[::step, ::step]
+    seen = np.zeros_like(small, dtype=bool)
+    best, best_n = None, 0
+    h, w = small.shape
+    for sy in range(h):
+        for sx in range(w):
+            if not small[sy, sx] or seen[sy, sx]:
+                continue
+            stack, comp = [(sy, sx)], []
+            seen[sy, sx] = True
+            while stack:
+                y, x = stack.pop()
+                comp.append((y, x))
+                for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    ny, nx = y + dy, x + dx
+                    if 0 <= ny < h and 0 <= nx < w and small[ny, nx] and not seen[ny, nx]:
+                        seen[ny, nx] = True
+                        stack.append((ny, nx))
+            if len(comp) > best_n:
+                best, best_n = comp, len(comp)
+
+    if best is None:
+        return person
+    keep = np.zeros_like(small)
+    for y, x in best:
+        keep[y, x] = True
+    mask = np.repeat(np.repeat(keep, step, 0), step, 1)[:a.shape[0], :a.shape[1]]
+    out = np.array(person)
+    out[:, :, 3] = np.where(mask, out[:, :, 3], 0)
+    return Image.fromarray(out, "RGBA")
+
+
+def crop_region(bg: Image.Image, x: float, wfrac: float = 0.52) -> Image.Image:
+    """人物を含む広めの領域を切る。切り抜きに掛ける前段。
+
+    ここで狭く切ると人物が途中で切れ、抜いたときに欠けた形になる。
+    **上下は削らない。** 上を削ると頭頂部が欠ける。上端の告知は人物に
+    重なっていなければ、抜くときに背景として一緒に消える。
+    """
+    bw, bh = bg.size
+    kw = int(bw * wfrac)
+    left = max(0, min(bw - kw, int(bw * x) - kw // 2))
+    return bg.crop((left, 0, left + kw, bh))
+
+
+def compose_faces(frames: list[Image.Image], xs: list[float | None] | None = None,
+                  size: tuple[int, int] = SIZE, cut: bool = True) -> Image.Image:
+    """白地の上に、抜いた人物を左右に並べる。
+
+    **背景ごと抜くので元動画のテロップは自動的に消える。** 帯を切ったり
+    ぼかしたりする必要がない。人物に重ならない位置にテロップがあるシーンを
+    選ぶことだけが条件になる。
+
+    人物は縦横比を保ったまま枠に収める。はみ出す側に合わせて縮めるので、
+    **顔が切れることがない。**
     """
     w, h = size
     n = len(frames)
     pw, ph = w // n, int(h * PHOTO_H)
     xs = list(xs or [None] * n)
 
-    # 写真の下は白地。元動画のテロップ帯を切り落としたぶんをここに充てる
     img = Image.new("RGB", size, WHITE)
     for i, fr in enumerate(frames):
         x = xs[i] if i < len(xs) and xs[i] is not None else 0.5
-        # **先にパネル領域へ切ってから抜く。** フレーム全体に掛けると画面内の
-        # 別の人物や机まで残り、1人に絞れない（実際にそうなった）
-        panel = crop_panel(fr.convert("RGB"), x, (pw, ph))
-
-        person = cutout(panel) if cut else None
+        region = crop_region(fr.convert("RGB"), x)
+        person = cutout(region) if cut else None
         if person is None:
-            img.paste(panel, (i * pw, 0))
+            img.paste(crop_panel(fr.convert("RGB"), x, (pw, ph)), (i * pw, 0))
             continue
 
-        # 背景は同じ画をぼかして暗く沈める。人物だけが立ち、元のテロップも潰れる
-        back = panel.filter(ImageFilter.GaussianBlur(22))
-        img.paste(Image.blend(back, Image.new("RGB", back.size, BLACK), 0.55),
-                  (i * pw, 0))
-        img.paste(person, (i * pw, 0), person)
-
-    d = ImageDraw.Draw(img)
-    for i in range(1, n):
-        d.rectangle([i * pw - 3, 0, i * pw + 2, ph], fill=BLACK)
+        person = largest_part(person)
+        box = person.getbbox()
+        if box:
+            person = person.crop(box)
+        # 枠いっぱいだと頭が縁に接する。少し余白を残す
+        scale = min(pw / person.width, ph * 0.94 / person.height)
+        person = person.resize((max(1, int(person.width * scale)),
+                                max(1, int(person.height * scale))), Image.LANCZOS)
+        img.paste(person, (i * pw + (pw - person.width) // 2, ph - person.height),
+                  person)
     return img
 
 
