@@ -32,7 +32,12 @@ import argparse
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.draw import (BG_BOTTOM, BG_TOP, GOLD, INK, MUTED,  # noqa: E402
+                          RED, fit_font, pick_font)
 
 for _s in (sys.stdout, sys.stderr):
     if hasattr(_s, "reconfigure"):
@@ -41,19 +46,9 @@ for _s in (sys.stdout, sys.stderr):
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "work" / "_brand"
 
-FONT_SANS = [
-    r"C:\Windows\Fonts\YuGothB.ttc",
-    r"C:\Windows\Fonts\meiryob.ttc",
-    r"C:\Windows\Fonts\msgothic.ttc",
-]
-
-# 令和の虎系の赤・金。配色は誰の占有物でもないのでここだけ共有する
-RED = (214, 34, 42)
-GOLD = (226, 158, 34)          # 白地では明るい金が飛ぶので少し落とす
-BG_TOP = (255, 255, 255)
-BG_BOTTOM = (243, 243, 246)
-LINE = (24, 24, 28)            # 見出し
-SUB = (122, 122, 132)
+# 配色とフォントは scripts/draw.py に集約し、図解カードと共有している
+LINE = INK       # 見出し
+SUB = MUTED
 
 BANNER_W, BANNER_H = 2560, 1440
 SAFE_W, SAFE_H = 1546, 423
@@ -93,25 +88,6 @@ FOREHEAD_BARS = [(0.355, 0.42), (0.470, 0.68), (0.585, 1.00)]
 BAR_TOP, BAR_BOTTOM, BAR_W = 0.225, 0.435, 0.070
 
 CLEAR = (0, 0, 0, 0)
-
-
-def pick_font(size: int) -> ImageFont.FreeTypeFont:
-    for p in FONT_SANS:
-        if Path(p).exists():
-            return ImageFont.truetype(p, size)
-    return ImageFont.load_default()
-
-
-def fit_font(draw: ImageDraw.ImageDraw, text: str, max_w: int,
-             start: int) -> ImageFont.FreeTypeFont:
-    size = start
-    while size > 14:
-        f = pick_font(size)
-        b = draw.textbbox((0, 0), text, font=f)
-        if b[2] - b[0] <= max_w:
-            return f
-        size -= 2
-    return pick_font(14)
 
 
 def _tiger(size: int) -> Image.Image:
