@@ -1,0 +1,13 @@
+# 認証情報
+client_secret.json
+token.json
+
+# ビルド中間物・元動画（再取得できるものは持たない）
+work/
+*.mp4
+*.wav
+*.vtt
+
+__pycache__/
+*.pyc
+.venv/
