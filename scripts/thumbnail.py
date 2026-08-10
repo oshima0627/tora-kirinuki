@@ -106,15 +106,24 @@ def _bubble(img: Image.Image, text: str, color, cx: int, cy: int,
     return bh + int(size * 0.30)
 
 
+# 被写体をパネル内のどこに置くか。**外側に寄せて中央に通路を作る。**
+# 参考サムネは2人を左右の端に寄せ、空いた中央に吹き出しを置いている。
+# 中央に顔があると吹き出しが必ず顔に被る（実際に被った）。
+OUT_BIAS = 0.34
+
+
 def compose_photos(frames: list[Image.Image], xs: list[float] | None = None,
-                   size: tuple[int, int] = SIZE) -> Image.Image:
-    """写真を左右に並べる。黒帯の下から下端まで敷く。"""
+                   size: tuple[int, int] = SIZE,
+                   biases: list[float] | None = None) -> Image.Image:
+    """写真を左右に並べる。黒帯の下から下端まで敷き、被写体は外側へ寄せる。"""
     w, h = size
     n = len(frames)
     pw = w // n
     top = int(h * BAND_H)
     ph = h - top
     xs = list(xs or [0.5] * n)
+
+    biases = list(biases or [None] * n)
 
     img = Image.new("RGB", size, BLACK)
     for i, fr in enumerate(frames):
@@ -123,7 +132,11 @@ def compose_photos(frames: list[Image.Image], xs: list[float] | None = None,
         keep_h = int(fh * (1 - PHOTO_TOP))
         keep_w = min(fw, int(keep_h * pw / ph))
         x = xs[i] if i < len(xs) else 0.5
-        left = max(0, min(fw - keep_w, int(fw * x) - keep_w // 2))
+
+        # 被写体をパネル内の target の位置に置く。外側の端に寄せる
+        b = biases[i] if i < len(biases) and biases[i] is not None else OUT_BIAS
+        target = b if i < n / 2 else 1 - b
+        left = max(0, min(fw - keep_w, int(fw * x - keep_w * target)))
         panel = fr.crop((left, int(fh * PHOTO_TOP), left + keep_w, fh))
         img.paste(panel.resize((pw, ph), Image.LANCZOS), (i * pw, top))
     return img
@@ -155,7 +168,7 @@ def render_thumbnail(photo: Image.Image, top: list[dict] | None = None,
         y = band_h + int(h * 0.035)
         for b in bubbles:
             y += _bubble(img, b["t"], COLORS.get(b.get("c", "r"), RED),
-                         w // 2, y, int(w * 0.62), b.get("side", "l"))
+                         w // 2, y, int(w * 0.56), b.get("side", "l"))
         d = ImageDraw.Draw(img)
 
     if bottom:
