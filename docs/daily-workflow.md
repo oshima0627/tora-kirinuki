@@ -1,7 +1,10 @@
 # 運用手順
 
-> **2026-08-09 に申請が受理され、活動許可が出ました。** 公開して構いません。
-> ただし**収益化したら必ず連絡が要ります**（下記）。
+> **2026-08-10 にチャンネルを移行しました。** `orfevre6.27@gmail.com` に同名の新チャンネルを
+> 作り直したため、**旧チャンネル（`oshima6.27@gmail.com`）で受理されていた許諾は新チャンネルには
+> 引き継がれません。** 権利者側から見れば別チャンネルIDの新規案件です。
+> **新チャンネルでの許諾が受理されるまで、公開（`--publish` / `--schedule`）は行わないこと。**
+> 申請フォーム: <https://forms.gle/knE8kFVfjTgr7Qa89>（令和の虎Second向け、本人が送信する）
 >
 > 権利者は「あくまで**黙認**」という立場です。**「公式」「公認」とは絶対に書かないでください。**
 > 概要欄の定型文はこの前提で書いてあります（`scripts/recipe.py` の `CREDIT`）。
@@ -45,11 +48,11 @@
 ```
 下記チャンネルYouTubeパートナープログラム承認済み
 
-①ご連絡先（メールアドレス）：oshima6.27@gmail.com
+①ご連絡先（メールアドレス）：orfevre6.27@gmail.com
 ②お名前（ご本名をフルネームでお願いします）：大島直孝
 ③切り抜き元のチャンネル名とURL：令和の虎Second https://www.youtube.com/@reiwanotora_second
 ④ご自身のチャンネル名：図解でわかる令和の虎【令和の虎Second 切り抜き】
-⑤チャンネルのURL：https://www.youtube.com/channel/UCVrCOqLMVJhdciCFUSg0TOw
+⑤チャンネルのURL：https://www.youtube.com/channel/UCWupHXqf8CTG00c_eoQSw1Q
 ```
 
 **この連絡をもって、分配率など今後の活動の条件を詰める話が始まります。**
@@ -67,8 +70,10 @@ python -m pip install --user -r requirements.txt
 python scripts/upload_youtube.py --auth-only
 ```
 
-表示されたチャンネルが `図解でわかる令和の虎`（`UCVrCOqLMVJhdciCFUSg0TOw`）であることを確認します。
+表示されたチャンネルが `図解でわかる令和の虎`（`UCWupHXqf8CTG00c_eoQSw1Q`）であることを確認します。
 違っていたら `token.json` を消してやり直してください。
+**`orfevre6.27@gmail.com` には他にもチャンネル（日本の最新ニュースまるわかり）があるので、
+同意画面でアカウントを選んだだけでは足りない。表示チャンネル名を必ず確認すること。**
 
 ## 1本作る
 
@@ -218,9 +223,13 @@ python scripts/upload_youtube.py work/<id>       --schedule "2026-08-11T03:10:00
 | 項目 | 値 |
 | --- | --- |
 | チャンネル | 図解でわかる令和の虎【令和の虎Second 切り抜き】 |
-| チャンネルID | `UCVrCOqLMVJhdciCFUSg0TOw` |
-| ハンドル | `@zukai-reiwanotora` |
-| Googleアカウント | `oshima6.27@gmail.com` |
+| チャンネルID | `UCWupHXqf8CTG00c_eoQSw1Q` |
+| ハンドル | `@reiwanotora-second2` |
+| Googleアカウント | `orfevre6.27@gmail.com`（同一アカウントに「日本の最新ニュースまるわかり」もある） |
 | 切り抜き元 | 令和の虎Second（`UC9cD37sXfBNCQpz3vINa3TA`） |
+
+**旧チャンネル**（`oshima6.27@gmail.com` / `UCVrCOqLMVJhdciCFUSg0TOw` / `@zukai-reiwanotora`）は
+2026-08-10に停止方針となった。登録者0のまま2本（齋藤匠・河合直人）が公開済みで、
+新チャンネル受理後にどう扱うか未定。
 
 チャンネルアートを作り直すときは `python scripts/build_brand.py --guide`。
