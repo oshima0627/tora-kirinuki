@@ -118,12 +118,18 @@ OUT_BIAS = 0.34
 def compose_photos(frames: list[Image.Image], xs: list[float] | None = None,
                    size: tuple[int, int] = SIZE,
                    biases: list[float] | None = None,
-                   tops: list[float] | None = None) -> Image.Image:
+                   tops: list[float] | None = None,
+                   bottoms: list[float] | None = None) -> Image.Image:
     """写真を左右に並べる。黒帯の下から下端まで敷き、被写体は外側へ寄せる。
 
     tops は各写真の上をどれだけ落とすかの個別指定（既定は PHOTO_TOP）。
     立位の人物は頭がフレーム上部に近く、既定値だと頭が切れることがある
     （実例：関西版の進行役が壇上に立つカット）。その場合だけ値を小さくする。
+
+    bottoms は下をどれだけ落とすかの個別指定（既定は0＝フレーム最下端まで使う）。
+    元動画の会話テロップは画面下いっぱいに出ることが多く、crop_top では
+    避けられない（下端は常にフレーム最下端に固定されるため）。テロップが
+    残る場合はその face だけ bottoms を指定する。
     """
     w, h = size
     n = len(frames)
@@ -134,13 +140,15 @@ def compose_photos(frames: list[Image.Image], xs: list[float] | None = None,
 
     biases = list(biases or [None] * n)
     tops_frac = list(tops or [None] * n)
+    bottoms_frac = list(bottoms or [None] * n)
 
     img = Image.new("RGB", size, BLACK)
     for i, fr in enumerate(frames):
         fr = fr.convert("RGB")
         fw, fh = fr.size
         photo_top = tops_frac[i] if i < len(tops_frac) and tops_frac[i] is not None else PHOTO_TOP
-        keep_h = int(fh * (1 - photo_top))
+        photo_bottom = bottoms_frac[i] if i < len(bottoms_frac) and bottoms_frac[i] is not None else 0.0
+        keep_h = int(fh * (1 - photo_top - photo_bottom))
         keep_w = min(fw, int(keep_h * pw / ph))
         x = xs[i] if i < len(xs) else 0.5
 
@@ -148,7 +156,8 @@ def compose_photos(frames: list[Image.Image], xs: list[float] | None = None,
         b = biases[i] if i < len(biases) and biases[i] is not None else OUT_BIAS
         target = b if i < n / 2 else 1 - b
         left = max(0, min(fw - keep_w, int(fw * x - keep_w * target)))
-        panel = fr.crop((left, int(fh * photo_top), left + keep_w, fh))
+        bottom_y = int(fh * (1 - photo_bottom))
+        panel = fr.crop((left, int(fh * photo_top), left + keep_w, bottom_y))
         img.paste(panel.resize((pw, ph), Image.LANCZOS), (i * pw, top))
     return img
 

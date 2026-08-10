@@ -112,6 +112,8 @@ def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
         # 立位の人物は頭がフレーム上部に近く、既定の PHOTO_TOP だと頭が切れることがある。
         # その face だけ crop_top を小さくして頭上に余白を作る
         tops=[f.get("crop_top") for f in faces],
+        # 会話テロップが画面下いっぱいに出るカットは crop_bottom でテロップ帯を落とす
+        bottoms=[f.get("crop_bottom") for f in faces],
     )
 
     render_thumbnail(photo, thumb.get("top"), thumb.get("bubbles"),
