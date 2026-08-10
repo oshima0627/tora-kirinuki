@@ -105,7 +105,14 @@ def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
 
     faces = thumb.get("faces") or []
     frames = [grab(f["at"], f"_face{i}.png") for i, f in enumerate(faces)]
-    photo = compose_photos(frames, [f.get("x", 0.5) for f in faces])
+    photo = compose_photos(
+        frames,
+        [f.get("x", 0.5) for f in faces],
+        biases=[f.get("bias") for f in faces],
+        # 立位の人物は頭がフレーム上部に近く、既定の PHOTO_TOP だと頭が切れることがある。
+        # その face だけ crop_top を小さくして頭上に余白を作る
+        tops=[f.get("crop_top") for f in faces],
+    )
 
     render_thumbnail(photo, thumb.get("top"), thumb.get("bubbles"),
                      thumb.get("bottom")).save(out / "thumb.png")

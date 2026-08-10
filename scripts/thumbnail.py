@@ -117,8 +117,14 @@ OUT_BIAS = 0.34
 
 def compose_photos(frames: list[Image.Image], xs: list[float] | None = None,
                    size: tuple[int, int] = SIZE,
-                   biases: list[float] | None = None) -> Image.Image:
-    """写真を左右に並べる。黒帯の下から下端まで敷き、被写体は外側へ寄せる。"""
+                   biases: list[float] | None = None,
+                   tops: list[float] | None = None) -> Image.Image:
+    """写真を左右に並べる。黒帯の下から下端まで敷き、被写体は外側へ寄せる。
+
+    tops は各写真の上をどれだけ落とすかの個別指定（既定は PHOTO_TOP）。
+    立位の人物は頭がフレーム上部に近く、既定値だと頭が切れることがある
+    （実例：関西版の進行役が壇上に立つカット）。その場合だけ値を小さくする。
+    """
     w, h = size
     n = len(frames)
     pw = w // n
@@ -127,12 +133,14 @@ def compose_photos(frames: list[Image.Image], xs: list[float] | None = None,
     xs = list(xs or [0.5] * n)
 
     biases = list(biases or [None] * n)
+    tops_frac = list(tops or [None] * n)
 
     img = Image.new("RGB", size, BLACK)
     for i, fr in enumerate(frames):
         fr = fr.convert("RGB")
         fw, fh = fr.size
-        keep_h = int(fh * (1 - PHOTO_TOP))
+        photo_top = tops_frac[i] if i < len(tops_frac) and tops_frac[i] is not None else PHOTO_TOP
+        keep_h = int(fh * (1 - photo_top))
         keep_w = min(fw, int(keep_h * pw / ph))
         x = xs[i] if i < len(xs) else 0.5
 
@@ -140,7 +148,7 @@ def compose_photos(frames: list[Image.Image], xs: list[float] | None = None,
         b = biases[i] if i < len(biases) and biases[i] is not None else OUT_BIAS
         target = b if i < n / 2 else 1 - b
         left = max(0, min(fw - keep_w, int(fw * x - keep_w * target)))
-        panel = fr.crop((left, int(fh * PHOTO_TOP), left + keep_w, fh))
+        panel = fr.crop((left, int(fh * photo_top), left + keep_w, fh))
         img.paste(panel.resize((pw, ph), Image.LANCZOS), (i * pw, top))
     return img
 
