@@ -175,6 +175,19 @@ python scripts/upload_youtube.py work/<id>-short --publish
 進めても構いませんが、`--publish` はその日の分がまだなければ実行し、すでに出していれば
 翌日以降に回してください。
 
+**公開時刻は昼12時台（JST）が候補。** ビジネス系コンテンツは通勤時間帯・夜の
+ゴールデンタイム（18-19時）を避け、昼休みに合わせると初動が伸びやすいという
+一般論がある（2026-08-10 調査、一次データではなく業界記事ベースなので参考値）。
+`--schedule` で予約公開できる。
+
+```bash
+python scripts/upload_youtube.py work/<id>-short --schedule "2026-08-11T03:00:00Z"  # JST 12:00
+python scripts/upload_youtube.py work/<id>       --schedule "2026-08-11T03:10:00Z"  # JST 12:10、ショートの少し後
+```
+
+`--schedule` は `--publish` と違い即時公開せず、privacyStatus を private のまま
+`publishAt` を仕込む。指定時刻に YouTube 側が自動で public に切り替える。
+
 ## 気をつけること
 
 - **概要欄の冒頭の元動画URL・タイトルは自動で入ります。** 手で書かないでください
