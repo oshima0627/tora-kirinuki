@@ -156,7 +156,11 @@ def set_thumbnail(service, video_id: str, workdir: Path) -> bool:
         return True
     except HttpError as e:
         print(f"! サムネイル設定に失敗しました: {e}")
-        print("  チャンネルの電話番号確認が済んでいるか確認してください")
+        if getattr(e, "status_code", None) == 429 or "429" in str(e):
+            # 短時間に何度も差し替えると弾かれる。クォータ超過ではないので待てば通る
+            print("  差し替えの回数制限です。時間を置いて --thumbnail-only を再実行してください")
+        else:
+            print("  チャンネルの電話番号確認が済んでいるか確認してください")
         return False
 
 
