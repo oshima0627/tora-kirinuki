@@ -80,15 +80,14 @@ def _draw_row(d: ImageDraw.ImageDraw, segs: list[dict], cx: int, baseline: int,
         x += int(d.textlength(s["t"], font=f))
 
 
-def _bubble(img: Image.Image, text: str, color, cx: int, cy: int,
-            max_w: int, side: str) -> int:
-    """白い角丸の吹き出し。side の方向に小さな尻尾を出す。次の行までの高さを返す。"""
-    d0 = ImageDraw.Draw(img)
+def _bubble_layer(text: str, color, max_w: int, side: str) -> Image.Image:
+    """白い角丸の吹き出しを1枚作る。side の方向に小さな尻尾を出す。"""
+    probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     size = 52
-    while size > 20 and d0.textlength(text, font=pick_font(size)) > max_w * 0.86:
+    while size > 20 and probe.textlength(text, font=pick_font(size)) > max_w * 0.86:
         size -= 2
     f = pick_font(size)
-    tw = int(d0.textlength(text, font=f))
+    tw = int(probe.textlength(text, font=f))
     bw, bh = tw + int(size * 1.5), int(size * 1.8)
 
     layer = Image.new("RGBA", (bw + size, bh + 2), (0, 0, 0, 0))
@@ -101,10 +100,14 @@ def _bubble(img: Image.Image, text: str, color, cx: int, cy: int,
                   (ox + bw - 4, bh * 0.72)])
     d.polygon(tail, fill=WHITE + (255,), outline=BLACK + (255,))
     d.text((ox + bw // 2, bh // 2), text, font=f, fill=color, anchor="mm")
+    return layer
 
-    img.paste(layer, (cx - layer.width // 2, cy), layer)
-    return bh + int(size * 0.30)
 
+# 吹き出しの下端をここに合わせる。**目元ではなく口元の高さに置く。**
+# 顔は顎に向かって細くなるので、下のほうが左右の余白を取りやすい。
+# 目元に置くと、外側に寄せても顔幅が広い位置で当たってしまう。
+BUBBLE_BOTTOM = 0.74
+BUBBLE_GAP = 0.022
 
 # 被写体をパネル内のどこに置くか。**外側に寄せて中央に通路を作る。**
 # 参考サムネは2人を左右の端に寄せ、空いた中央に吹き出しを置いている。
@@ -165,10 +168,16 @@ def render_thumbnail(photo: Image.Image, top: list[dict] | None = None,
         _draw_row(d, top, w // 2, int(band_h * 0.82), s, halo=False)
 
     if bubbles:
-        y = band_h + int(h * 0.035)
-        for b in bubbles:
-            y += _bubble(img, b["t"], COLORS.get(b.get("c", "r"), RED),
-                         w // 2, y, int(w * 0.56), b.get("side", "l"))
+        layers = [_bubble_layer(b["t"], COLORS.get(b.get("c", "r"), RED),
+                                int(w * 0.56), b.get("side", "l"))
+                  for b in bubbles]
+        gap = int(h * BUBBLE_GAP)
+        total = sum(l.height for l in layers) + gap * (len(layers) - 1)
+        # 下端を口元の高さに合わせ、そこから上へ積む
+        y = max(band_h + int(h * 0.02), int(h * BUBBLE_BOTTOM) - total)
+        for l in layers:
+            img.paste(l, (w // 2 - l.width // 2, y), l)
+            y += l.height + gap
         d = ImageDraw.Draw(img)
 
     if bottom:
