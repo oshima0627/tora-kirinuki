@@ -164,12 +164,16 @@ def set_thumbnail(service, video_id: str, workdir: Path) -> bool:
         return False
 
 
-def set_privacy(service, video_id: str, privacy: str) -> None:
+def set_privacy(service, video_id: str, privacy: str, publish_at: str | None = None) -> None:
     """公開設定を変更する。
 
     videos.update は部分更新ではなく part を丸ごと置き換える。status だけを渡すと
     selfDeclaredMadeForKids などが既定値に戻る恐れがあるため、現在の status を
     読んでから必要な項目だけ差し替えて送る。
+
+    publish_at を渡すと即座には公開せず、YouTube 側の予約公開に乗せる。
+    このとき privacyStatus は "private" のまま送る（"public" と同時に送ると
+    無視されて即時公開になる）。指定時刻になると YouTube が自動で public に切り替える。
     """
     items = service.videos().list(part="status", id=video_id).execute().get("items", [])
     if not items:
@@ -180,7 +184,11 @@ def set_privacy(service, video_id: str, privacy: str) -> None:
     writable = ("license", "embeddable", "publicStatsViewable",
                 "selfDeclaredMadeForKids")
     status = {k: cur[k] for k in writable if k in cur}
-    status["privacyStatus"] = privacy
+    if publish_at:
+        status["privacyStatus"] = "private"
+        status["publishAt"] = publish_at
+    else:
+        status["privacyStatus"] = privacy
     service.videos().update(part="status",
                             body={"id": video_id, "status": status}).execute()
 
@@ -213,6 +221,9 @@ def main() -> None:
                     help="認証だけ通して token.json を作る")
     ap.add_argument("--publish", action="store_true",
                     help="アップロード済みの動画を公開に切り替える")
+    ap.add_argument("--schedule", metavar="ISO8601",
+                    help="即時公開せず、指定時刻に自動公開する予約を入れる"
+                         "（例: 2026-08-11T03:00:00Z。JSTなら+09:00を付ける）")
     ap.add_argument("--thumbnail-only", action="store_true",
                     help="アップロード済みの動画のサムネイルだけ差し替える")
     a = ap.parse_args()
@@ -240,15 +251,23 @@ def main() -> None:
         print(f"{'✓ 差し替えました' if ok else '! 差し替えできませんでした'}: {entry['url']}")
         return
 
-    if a.publish:
+    if a.publish or a.schedule:
         data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
         entry = data["videos"].get(meta["id"]) or die(
             f"{meta['id']} はまだアップロードされていません")
-        set_privacy(service, entry["youtube_video_id"], "public")
-        entry["privacy_status"] = "public"
-        PUBLISHED.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        print(f"✓ 公開しました: {entry['url']}")
+        if a.schedule:
+            set_privacy(service, entry["youtube_video_id"], "private", publish_at=a.schedule)
+            entry["privacy_status"] = "private"
+            entry["publish_at"] = a.schedule
+            PUBLISHED.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print(f"✓ 予約しました: {entry['url']}  → {a.schedule} に自動公開")
+        else:
+            set_privacy(service, entry["youtube_video_id"], "public")
+            entry["privacy_status"] = "public"
+            PUBLISHED.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print(f"✓ 公開しました: {entry['url']}")
         return
 
     description = (a.workdir / "description.txt").read_text(encoding="utf-8")
