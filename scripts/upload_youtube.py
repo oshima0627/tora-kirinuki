@@ -27,7 +27,7 @@ CLIENT_SECRET = ROOT / "client_secret.json"
 TOKEN = ROOT / "token.json"
 PUBLISHED = ROOT / "state" / "published.json"
 
-# 必要なスコープは3つの要件から決まる。
+# 必要なスコープは4つの要件から決まる。
 #
 #   videos.insert    → youtube.upload
 #   channels.list    → youtube.readonly
@@ -35,10 +35,12 @@ PUBLISHED = ROOT / "state" / "published.json"
 #                      API は既定チャンネルに上げる。実際に一度、意図しない
 #                      チャンネルに入った。事前確認の手段が無いとこの事故は静かに続く。
 #   videos.update    → youtube.force-ssl（公開設定の変更に必要。狭いスコープが無い）
+#   reports.query    → yt-analytics.readonly（インプレッション数・トラフィックソースの確認用）
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube.readonly",
     "https://www.googleapis.com/auth/youtube.force-ssl",
+    "https://www.googleapis.com/auth/yt-analytics.readonly",
 ]
 
 
