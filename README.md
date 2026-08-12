@@ -2,7 +2,10 @@
 
 令和の虎Second（`@reiwanotora_second`）の切り抜き動画を制作して YouTube に投稿するパイプライン。
 
-設計は [`docs/superpowers/specs/2026-08-09-tora-kirinuki-design.md`](docs/superpowers/specs/2026-08-09-tora-kirinuki-design.md)。
+投稿先は [`@reiwanotora-second2`](https://www.youtube.com/@reiwanotora-second2)（図解でわかる令和の虎）。
+
+- 設計: [`docs/superpowers/specs/2026-08-09-tora-kirinuki-design.md`](docs/superpowers/specs/2026-08-09-tora-kirinuki-design.md)
+- チャンネル設定: [`docs/superpowers/specs/2026-08-10-channel-settings.md`](docs/superpowers/specs/2026-08-10-channel-settings.md)
 
 ## 前提
 
