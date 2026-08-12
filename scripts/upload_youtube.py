@@ -109,6 +109,39 @@ def assert_expected_channel(service, meta: dict) -> dict | None:
     return ch
 
 
+FUNNEL_HEAD = "▼この回をフルで見る"
+
+
+def with_long_form_link(meta: dict, description: str) -> str:
+    """ショートの概要欄に、同じ回の長尺へのリンクを差し込む。
+
+    **ショートは長尺への導線として出している。** それなのに概要欄のリンクが
+    元動画（公式チャンネル）だけだと、ショートを見た人の行き先が公式にしか
+    無い。実際に7本ともその状態で公開されていた。
+
+    長尺のURLはアップロードするまで決まらないので、ビルド時ではなくここで
+    差し込む。運用手順どおり長尺 → ショートの順に上げれば必ず解決する。
+    """
+    vid_id = meta["id"]
+    if not vid_id.endswith("-short"):
+        return description
+    if FUNNEL_HEAD in description:
+        return description
+
+    base = vid_id[: -len("-short")]
+    data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
+    entry = data["videos"].get(base)
+    if not entry:
+        die(f"長尺 {base} が未アップロードです。"
+            f"ショートは長尺へのリンクを持つので、先に長尺を上げてください")
+
+    # 元動画URL（MCNの条件で冒頭に置く）の直後。本文より前に出す
+    lines = description.split("\n")
+    at = 2 if len(lines) >= 2 else len(lines)
+    lines[at:at] = ["", FUNNEL_HEAD, entry["url"]]
+    return "\n".join(lines)
+
+
 def upload(service, workdir: Path, meta: dict, description: str, privacy: str) -> str:
     from googleapiclient.http import MediaFileUpload
 
@@ -273,6 +306,7 @@ def main() -> None:
         return
 
     description = (a.workdir / "description.txt").read_text(encoding="utf-8")
+    description = with_long_form_link(meta, description)
     privacy = meta.get("privacy_status", "private")
     vid = upload(service, a.workdir, meta, description, privacy)
     thumb_ok = set_thumbnail(service, vid, a.workdir)
