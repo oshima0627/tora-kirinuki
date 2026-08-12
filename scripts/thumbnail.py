@@ -114,6 +114,13 @@ BUBBLE_GAP = 0.022
 # 中央に顔があると吹き出しが必ず顔に被る（実際に被った）。
 OUT_BIAS = 0.34
 
+# 下の極太行。**右下は再生時間のバッジに食われる。**
+# YouTube はサムネの右下角に「6:32」の黒バッジを重ねて描く。1280x720 換算で
+# おおよそ x=1145..1272 / y=665..700。ここに文字を置くと末尾が読めなくなる。
+# 幅を詰めて中央寄せのまま右端を手前で止め、ベースラインも少し上げて避ける。
+BOTTOM_MAX_W = 0.88
+BOTTOM_BASELINE = 0.075
+
 
 def compose_photos(frames: list[Image.Image], xs: list[float] | None = None,
                    size: tuple[int, int] = SIZE,
@@ -198,6 +205,6 @@ def render_thumbnail(photo: Image.Image, top: list[dict] | None = None,
         d = ImageDraw.Draw(img)
 
     if bottom:
-        s = _fit(d, bottom, int(w * 0.96), int(h * 0.20))
-        _draw_row(d, bottom, w // 2, h - int(h * 0.045), s)
+        s = _fit(d, bottom, int(w * BOTTOM_MAX_W), int(h * 0.20))
+        _draw_row(d, bottom, w // 2, h - int(h * BOTTOM_BASELINE), s)
     return img

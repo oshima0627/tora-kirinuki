@@ -89,14 +89,16 @@
   "thumb": {
     "faces": [
       {
-        "at": 2527.0,
-        "x": 0.40,
-        "crop_top": 0.3
+        "at": 2548.0,
+        "x": 0.46,
+        "crop_top": 0.09,
+        "crop_bottom": 0.25
       },
       {
-        "at": 2655.0,
+        "at": 2673.0,
         "x": 0.29,
-        "crop_top": 0.04
+        "crop_top": 0.04,
+        "crop_bottom": 0.36
       }
     ],
     "top": [
