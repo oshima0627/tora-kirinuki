@@ -80,3 +80,38 @@ def test_候補はスコアの高い順に返る():
     got = find_candidates(s, [], duration=600, count=2, length=60.0)
     assert got[0]["score"] >= got[1]["score"]
     assert got[0]["start"] <= 400 <= got[0]["end"]
+
+
+def _sig():
+    return {
+        "lexical": [{"seconds": 100, "kind": "詰め", "word": "甘い", "line": "a"},
+                    {"seconds": 105, "kind": "詰め", "word": "舐め", "line": "b"},
+                    {"seconds": 500, "kind": "判定", "word": "成立", "line": "c"}],
+        "comment_marks": [{"seconds": 102, "count": 4}],
+    }
+
+
+def test_内訳で詰めパートと判定パートを見分けられる():
+    from scripts.moments import signal_counts
+    early = signal_counts(_sig(), 0, 200)
+    late = signal_counts(_sig(), 400, 600)
+    assert early["詰め"] == 2 and early["判定"] == 0
+    assert late["判定"] == 1 and late["詰め"] == 0
+    # コメント言及は件数で数える（1箇所に4件なら4）
+    assert early["コメント"] == 4
+
+
+def test_preferで詰めの重みが上がる():
+    from scripts.moments import score_grid
+    plain = score_grid(_sig(), 600)
+    boosted = score_grid(_sig(), 600, prefer="詰め")
+    assert boosted[100] > plain[100]
+    # 判定側は変わらない
+    assert boosted[500] == plain[500]
+
+
+def test_候補に内訳が付く():
+    from scripts.moments import find_candidates
+    cues = [{"t": float(t), "line": "x"} for t in range(0, 600, 10)]
+    cands = find_candidates(_sig(), cues, 600, count=1, length=200.0)
+    assert "signals" in cands[0]

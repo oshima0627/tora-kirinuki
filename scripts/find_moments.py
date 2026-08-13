@@ -38,6 +38,10 @@ def main() -> None:
     # 当初の420秒はこの市場では明確に短すぎる。総再生時間（YPPの3,000時間）にも効く
     ap.add_argument("--length", type=float, default=900.0,
                     help="1本の目安の尺（秒）。この市場の相場は13〜20分")
+    # 詰めどころを狙うときに使う。既定のままだと判定パートが上位に来やすく、
+    # 実際に8本すべてが判定パートからの切り出しになっていた
+    ap.add_argument("--prefer", choices=("詰め", "判定", "金額"),
+                    help="この語彙の重みを上げて候補を選び直す")
     a = ap.parse_args()
 
     d = source_dir(a.video_id)
@@ -51,7 +55,7 @@ def main() -> None:
     meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
     duration = int(meta.get("duration_sec") or 0)
 
-    cands = find_candidates(signals, cues, duration, a.count, a.length)
+    cands = find_candidates(signals, cues, duration, a.count, a.length, a.prefer)
     (d / "candidates.json").write_text(
         json.dumps(cands, ensure_ascii=False, indent=1), encoding="utf-8")
 
@@ -60,8 +64,14 @@ def main() -> None:
         return
 
     for i, c in enumerate(cands, 1):
-        head = "".join(c["subtitles"][:4])[:56]
-        print(f"{i}. {hms(c['start'])}-{hms(c['end'])}  score={c['score']:.1f}  {head}")
+        head = "".join(c["subtitles"][:4])[:46]
+        s = c.get("signals") or {}
+        # 位置（動画のどのあたりか）も出す。8本すべてが平均79%地点＝判定パート
+        # からの切り出しになっていたのを、選ぶ前に気づけるようにする
+        pos = c["start"] / duration * 100 if duration else 0
+        breakdown = " ".join(f"{k}{s.get(k, 0)}" for k in ("詰め", "判定", "金額", "コメント"))
+        print(f"{i}. {hms(c['start'])}-{hms(c['end'])}  {pos:.0f}%地点  "
+              f"score={c['score']:.1f}  [{breakdown}]  {head}")
 
     money = [m for m in (signals.get("lexical") or []) if m["kind"] == "金額"][:8]
     if money:

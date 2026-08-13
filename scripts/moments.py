@@ -34,8 +34,22 @@ def _add(grid: dict[int, float], t: int, v: float, duration: int) -> None:
             grid[k] = grid.get(k, 0.0) + v * (1 - abs(d) / (SPREAD + 1))
 
 
-def score_grid(signals: dict, duration: int) -> dict[int, float]:
-    """秒ごとのスコアを返す。値が無い秒はキーごと持たない。"""
+# **切り出す場所は判定だけではない。** 8本を実測したところ全部が動画の
+# 平均79%地点＝判定パートからの切り出しで、うち6本が完全ALLの成功譚だった。
+# 一方この市場で伸びているのは「虎がブチギレた回」「激詰め」——中盤の対立。
+# 詰めどころを狙いたいときに語彙の重みを持ち上げられるようにしておく
+PREFER_BOOST = 3.0
+
+
+def score_grid(signals: dict, duration: int, prefer: str | None = None) -> dict[int, float]:
+    """秒ごとのスコアを返す。値が無い秒はキーごと持たない。
+
+    prefer に語彙の種類（詰め／判定／金額）を渡すと、その語彙の重みを上げる。
+    """
+    w_lex = dict(W_LEX)
+    if prefer in w_lex:
+        w_lex[prefer] *= PREFER_BOOST
+
     grid: dict[int, float] = {}
 
     loud_at: dict[int, float] = {}
@@ -47,7 +61,7 @@ def score_grid(signals: dict, duration: int) -> dict[int, float]:
 
     hard_at: set[int] = set()
     for m in signals.get("lexical") or []:
-        w = W_LEX.get(m["kind"], 0.0)
+        w = w_lex.get(m["kind"], 0.0)
         if w:
             _add(grid, int(m["seconds"]), w, duration)
         if m["kind"] in ("詰め", "判定"):
@@ -79,14 +93,31 @@ def snap_to_cues(start: float, end: float, cues: list[dict]) -> tuple[float, flo
     return nearest(start), nearest(end)
 
 
+def signal_counts(signals: dict, start: float, end: float) -> dict[str, int]:
+    """区間に入っている信号の内訳。**判定パートか詰めパートかを見分けるため。**
+
+    スコアだけでは、虎が詰めている区間なのか出資判定の区間なのかが分からない。
+    どちらを切るかで動画の性格が変わるので、選ぶ前に内訳を見せる。
+    """
+    counts = {k: 0 for k in W_LEX}
+    for m in signals.get("lexical") or []:
+        if start <= m["seconds"] <= end and m["kind"] in counts:
+            counts[m["kind"]] += 1
+    counts["コメント"] = sum(
+        m.get("count", 1) for m in (signals.get("comment_marks") or [])
+        if start <= m["seconds"] <= end)
+    return counts
+
+
 def find_candidates(signals: dict, cues: list[dict], duration: int,
-                    count: int = 5, length: float = 420.0) -> list[dict]:
+                    count: int = 5, length: float = 420.0,
+                    prefer: str | None = None) -> list[dict]:
     """スコアの積分が大きい区間を、重ならないように上から取る。
 
     ヒートマップが無くても動く。令和の虎Second では30本中23本で
     ヒートマップが存在しないため、ここが動かないと大半の動画で候補ゼロになる。
     """
-    grid = score_grid(signals, duration)
+    grid = score_grid(signals, duration, prefer)
     if not grid:
         return []
 
@@ -109,6 +140,7 @@ def find_candidates(signals: dict, cues: list[dict], duration: int,
             continue
         picked.append({
             "start": start, "end": end, "score": round(total, 3),
+            "signals": signal_counts(signals, start, end),
             "subtitles": [c["line"] for c in cues if start <= c["t"] <= end],
         })
         if len(picked) >= count:
