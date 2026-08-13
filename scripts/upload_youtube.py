@@ -248,6 +248,41 @@ def record(meta: dict, video_id: str, privacy: str, thumb_ok: bool,
         json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def pending_thumbnails() -> list[tuple[str, str]]:
+    """サムネイル未設定の (published.json のキー, 動画ID) を返す。
+
+    `thumbnails.set` は短時間に何度も呼ぶと429で弾かれる。1日に十数本を
+    上げ直すと確実に当たるので、あとからまとめて拾い直せるようにしておく。
+    """
+    if not PUBLISHED.exists():
+        return []
+    data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
+    return [(k, v["youtube_video_id"])
+            for k, v in data["videos"].items() if not v.get("thumbnail_set")]
+
+
+def retry_thumbnails(service) -> None:
+    pending = pending_thumbnails()
+    if not pending:
+        print("✓ サムネイル未設定のものはありません")
+        return
+
+    data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
+    for key, vid in pending:
+        workdir = ROOT / "work" / key
+        if not (workdir / "thumb.png").exists():
+            print(f"- {key}: {workdir / 'thumb.png'} が無いので飛ばす")
+            continue
+        if set_thumbnail(service, vid, workdir):
+            data["videos"][key]["thumbnail_set"] = True
+            print(f"✓ {key}  https://www.youtube.com/watch?v={vid}")
+    PUBLISHED.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    left = len(pending_thumbnails())
+    print(f"残り {left} 件" if left else "✓ 全部設定できました")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("workdir", type=Path, nargs="?",
@@ -261,9 +296,14 @@ def main() -> None:
                          "（例: 2026-08-11T03:00:00Z。JSTなら+09:00を付ける）")
     ap.add_argument("--thumbnail-only", action="store_true",
                     help="アップロード済みの動画のサムネイルだけ差し替える")
+    ap.add_argument("--retry-thumbnails", action="store_true",
+                    help="thumbnail_set が false のものをまとめて再試行する")
     a = ap.parse_args()
 
     service = get_service()
+    if a.retry_thumbnails:
+        retry_thumbnails(service)
+        return
     if a.auth_only:
         ch = current_channel(service)
         print(f"✓ 認証しました: {ch['title']}（{ch['id']}）" if ch else "✓ 認証しました")
