@@ -27,6 +27,10 @@ if hasattr(sys.stdout, "reconfigure"):
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "work"
 
+# 案件カードと判定カードは、かつて静止画の動画セグメントを作って本編の前後に
+# 連結していた。**やめた。** 冒頭4秒が無音（実測-91dB）の止め絵になり、
+# 新規チャンネルの初回配信で最も効く「最初の数秒」を捨てていた。
+# いまは本編に重ねるので、音は0秒から鳴る。
 CARD_SEC = 4.0          # 案件カード・判定カードの表示秒数
 POINT_SEC = 3.5         # 論点カードの表示秒数
 DUR_TOLERANCE = 1.0     # ビルド後の尺の許容差（秒）
@@ -73,13 +77,32 @@ def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True, capture_output=True)
 
 
-def _still(png: Path, out: Path, seconds: float) -> None:
-    """静止画から尺つきの動画セグメントを作る。無音トラックを必ず付ける。"""
-    _run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", str(png),
-          "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
-          "-t", f"{seconds}", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-          "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-r", str(FPS),
-          "-vf", "scale=1920:1080", str(out)])
+def overlay_plan(recipe: dict, cards: Path, length: float) -> list[tuple[Path, float, float]]:
+    """(PNG, 表示開始, 表示終了) を本編の時間軸で返す。
+
+    案件カードは冒頭、論点カードは指定秒、判定カードは末尾。すべて重ねるので
+    尺は本編と一致する（連結していた頃は前後に4秒ずつ足されていた）。
+    """
+    start = recipe["clip"]["start"]
+    plan = [(cards / "brief.png", 0.0, CARD_SEC)]
+    for i, p in enumerate(recipe["cards"].get("points") or []):
+        at = p["at"] - start
+        plan.append((cards / f"point_{i}.png", at, at + POINT_SEC))
+    plan.append((cards / "verdict.png", max(0.0, length - CARD_SEC), length))
+    return plan
+
+
+def overlay_filter(plan: list[tuple[Path, float, float]]) -> str:
+    """入力0の映像に、入力1.. のPNGを時間指定で順に重ねるフィルタを組む。
+
+    **1回のエンコードで全部重ねる。** 以前はカード1枚ごとに ffmpeg を回していて、
+    9枚なら9世代ぶんの再エンコード劣化とビルド時間がかかっていた。
+    """
+    parts = [f"[0:v]scale=1920:1080,fps={FPS}[v0]"]
+    for i, (_, s, e) in enumerate(plan):
+        parts.append(f"[v{i}][{i + 1}:v]overlay=0:0:"
+                     f"enable='between(t,{s:.3f},{e:.3f})'[v{i + 1}]")
+    return ";".join(parts)
 
 
 def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
@@ -139,52 +162,36 @@ def build(recipe_path: Path, dry_run: bool = False) -> Path:
         print(f"[dry-run] {recipe['id']}")
         print(f"  切り出し {start:.1f}s - {end:.1f}s（{length:.1f}s）")
         print(f"  論点カード {len(points)} 枚")
-        print(f"  合計尺の見込み {length + CARD_SEC * 2:.1f}s")
+        print(f"  合計尺の見込み {length:.1f}s（カードは重ねるので尺は増えない）")
         return out
 
     out.mkdir(parents=True, exist_ok=True)
     cards = out / "cards"
     cards.mkdir(exist_ok=True)
 
-    brief_png, verdict_png = cards / "brief.png", cards / "verdict.png"
-    render_brief(recipe["cards"]["brief"]).save(brief_png)
-    render_verdict(recipe["cards"].get("verdict") or {}).save(verdict_png)
-
-    # 本体を切り出す。尺は -t で明示する（-ss だけだと入力側の丸めで伸びる）
-    body = out / "body.mp4"
-    _run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{start}",
-          "-i", str(src / "source.mp4"), "-t", f"{length}",
-          "-vf", f"scale=1920:1080,fps={FPS}",
-          "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-          "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", str(body)])
-
-    # 論点カードを1枚ずつ重ねる
-    overlaid = body
+    render_brief(recipe["cards"]["brief"]).save(cards / "brief.png")
+    render_verdict(recipe["cards"].get("verdict") or {}).save(cards / "verdict.png")
     for i, p in enumerate(points):
-        at = p["at"] - start
-        png = cards / f"point_{i}.png"
-        render_point(p["text"]).save(png)
-        nxt = out / f"_ov{i}.mp4"
-        _run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(overlaid),
-              "-i", str(png), "-filter_complex",
-              f"[0:v][1:v]overlay=0:0:enable='between(t,{at},{at + POINT_SEC})'",
-              "-c:a", "copy", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-              str(nxt)])
-        overlaid = nxt
+        render_point(p["text"]).save(cards / f"point_{i}.png")
 
-    _still(brief_png, out / "_brief.mp4", CARD_SEC)
-    _still(verdict_png, out / "_verdict.mp4", CARD_SEC)
-
-    concat = out / "concat.txt"
-    concat.write_text("".join(
-        f"file '{p.as_posix()}'\n"
-        for p in (out / "_brief.mp4", overlaid, out / "_verdict.mp4")),
-        encoding="utf-8")
+    plan = overlay_plan(recipe, cards, length)
     video = out / "video.mp4"
-    _run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-          "-i", str(concat), "-c", "copy", str(video)])
+    # 尺は -t で明示する（-ss だけだと入力側の丸めで伸びる）
+    # **-t は出力側に置く。** 入力の -i と次の -i のあいだに書くと、
+    # 後続のPNG入力に対する指定として解釈され、切り出しの終端が効かない
+    cmd = ["ffmpeg", "-y", "-loglevel", "error",
+           "-ss", f"{start}", "-i", str(src / "source.mp4")]
+    for png, _, _ in plan:
+        cmd += ["-i", str(png)]
+    cmd += ["-t", f"{length}",
+            "-filter_complex", overlay_filter(plan),
+            "-map", f"[v{len(plan)}]", "-map", "0:a",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", str(video)]
+    _run(cmd)
 
-    expected = length + CARD_SEC * 2
+    expected = length
     actual = probe_duration(video)
     if abs(actual - expected) > DUR_TOLERANCE:
         raise SystemExit(f"! 尺が合わない: 期待 {expected:.1f}s / 実測 {actual:.1f}s")

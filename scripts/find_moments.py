@@ -33,8 +33,11 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("video_id")
     ap.add_argument("--count", type=int, default=5)
-    ap.add_argument("--length", type=float, default=420.0,
-                    help="1本の目安の尺（秒）")
+    # 既定を900秒（15分）にしてある。「令和の虎 切り抜き」の検索上位25本は
+    # すべて14〜70分で、日次で回している競合も13〜15分と20分だった（2026-08-13 実測）。
+    # 当初の420秒はこの市場では明確に短すぎる。総再生時間（YPPの3,000時間）にも効く
+    ap.add_argument("--length", type=float, default=900.0,
+                    help="1本の目安の尺（秒）。この市場の相場は13〜20分")
     a = ap.parse_args()
 
     d = source_dir(a.video_id)

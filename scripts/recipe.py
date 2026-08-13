@@ -49,11 +49,20 @@ def validate(recipe: dict) -> None:
             f"タイトルに「{hit}」が入っている。ガイドラインで禁止されている表現")
 
 
-SHORT_MAX_SEC = 180.0     # Shorts として扱われる上限
+SHORT_MAX_SEC = 180.0     # Shorts として扱われる上限（YouTube の仕様）
+
+# 実際に伸びている競合の尺（2026-08-13 実測）。令和の虎塾のショートは67〜73秒で
+# 公開1〜4日に3,925〜28,477再生、【忙しい人のための】は22〜37秒。
+# こちらの103秒・132秒は0〜2再生だった。上限180秒に収まっていても長すぎる。
+# 落とすほどではないので警告にとどめる（尺は素材で決まることもある）
+SHORT_RECOMMENDED_SEC = 75.0
 
 
-def validate_short(recipe: dict) -> None:
-    """ショートの区間を検証する。長尺と同じレシピから作るので共通項目は validate に任せる。"""
+def validate_short(recipe: dict) -> list[str]:
+    """ショートの区間を検証する。長尺と同じレシピから作るので共通項目は validate に任せる。
+
+    落とすべきでない指摘は警告の一覧として返す。
+    """
     short = recipe.get("short")
     if not short:
         raise ValueError("レシピに short がない。ショートを作るには short が要る")
@@ -69,6 +78,13 @@ def validate_short(recipe: dict) -> None:
         raise ValueError(
             "short.hook が空。縦型は冒頭2秒で離脱が決まるので、"
             "フック無しで出す意味がない")
+
+    warnings = []
+    if end - start > SHORT_RECOMMENDED_SEC:
+        warnings.append(
+            f"short が {end - start:.0f}秒。伸びている競合は22〜73秒で、"
+            f"{SHORT_RECOMMENDED_SEC:.0f}秒を超えると完走されにくい")
+    return warnings
 
 
 def build_description(recipe: dict) -> str:

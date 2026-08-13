@@ -75,3 +75,17 @@ def test_長い文字列でも落ちない():
 
 def test_何も指定しなくても落ちない():
     assert render_short_frame().size == (1080, 1920)
+
+
+def test_推奨より長いショートは警告になる():
+    # 落とさない。尺は素材で決まることもある。ただし黙って通すと
+    # 132秒のショート（実績0〜2再生）がまた出る
+    from scripts.recipe import validate_short
+    r = {"short": {"start": 0.0, "end": 130.0, "hook": "h"}}
+    warnings = validate_short(r)
+    assert any("完走されにくい" in w for w in warnings)
+
+
+def test_推奨に収まれば警告は出ない():
+    from scripts.recipe import validate_short
+    assert validate_short({"short": {"start": 0.0, "end": 65.0, "hook": "h"}}) == []

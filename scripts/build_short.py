@@ -39,7 +39,8 @@ FPS = 30
 
 def preflight(recipe: dict, src_dir: Path) -> list[str]:
     validate(recipe)
-    validate_short(recipe)
+    for w in validate_short(recipe):
+        print(f"! {w}")
 
     missing = []
     if not (src_dir / "source.mp4").exists():
