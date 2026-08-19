@@ -33,6 +33,51 @@ CHANNEL_ID = "UC9cD37sXfBNCQpz3vINa3TA"
 # lang=ja を付けないと、タイトル・チャプター名が自動翻訳で英語になる
 JA = {"youtube": {"lang": ["ja"]}}
 
+# 2026-08-19、YouTube 側の変更で素の yt-dlp では本編が落とせなくなった（HTTP 403）。
+# 次の3つが揃って初めて通る。ひとつでも欠けると症状が変わるだけで落ちる。
+#
+#   1. JSランタイム   署名チャレンジの解読に要る。無いと android_vr へ退避して 403
+#   2. POトークン     bgutil のプロバイダが要る。未起動だと同じく 403
+#   3. web_safari     既定クライアントの媒体URLは 403。Cookie も併せて要る
+#                     （Cookie 無しだと "Only images are available" になる）
+#
+# 2 は常駐サーバが要る。起動していない場合は下の PO_TOKEN_SERVER_HINT を出す。
+#   cd ~/bgutil-ytdlp-pot-provider/server && node build/main.js
+#
+# web_safari では DASH（映像と音声が別）が出ず、HLSの結合フォーマットだけになる。
+# 1080p は itag 96。fetch は下の FORMAT で明示的に 1080p までに抑える。
+COMPAT = {
+    "js_runtimes": {"node": {}},
+    "cookiesfrombrowser": ("firefox", None, None, None),
+}
+CLIENT = {"player_client": ["web_safari"]}
+FORMAT = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
+
+PO_TOKEN_SERVER = "http://127.0.0.1:4416"
+PO_TOKEN_SERVER_HINT = (
+    "! POトークンのプロバイダが起動していません。別のシェルで先にこれを実行してください:\n"
+    "    cd ~/bgutil-ytdlp-pot-provider/server && node build/main.js")
+
+
+def check_pot_server() -> None:
+    """未起動のまま走ると 403 で落ちるだけで理由が出ないので、先に見る。"""
+    import urllib.error
+    import urllib.request
+    try:
+        urllib.request.urlopen(f"{PO_TOKEN_SERVER}/ping", timeout=5).read()
+    except (urllib.error.URLError, OSError):
+        raise SystemExit(PO_TOKEN_SERVER_HINT)
+
+
+def ydl_opts(**extra: object) -> dict:
+    """yt-dlp のオプションに、上の回避策をまとめて足す。"""
+    opts: dict = {"quiet": True, "no_warnings": True, **COMPAT}
+    ea = dict(extra.pop("extractor_args", None) or JA)
+    ea["youtube"] = {**ea.get("youtube", {}), **CLIENT}
+    opts["extractor_args"] = ea
+    opts.update(extra)
+    return opts
+
 
 def source_dir(video_id: str) -> Path:
     return WORK / video_id
@@ -56,9 +101,8 @@ def list_channel(limit: int) -> list[dict]:
     """
     from yt_dlp import YoutubeDL
 
-    opts = {"quiet": True, "no_warnings": True, "skip_download": True,
-            "extract_flat": "in_playlist", "playlistend": limit,
-            "extractor_args": JA}
+    opts = ydl_opts(skip_download=True, extract_flat="in_playlist",
+                    playlistend=limit)
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(CHANNEL_URL, download=False)
     return [{"id": e.get("id"), "title": e.get("title") or "",
@@ -70,8 +114,7 @@ def list_channel(limit: int) -> list[dict]:
 def fetch_one(url: str, force: bool = False) -> Path:
     from yt_dlp import YoutubeDL
 
-    with YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True,
-                    "extractor_args": JA}) as ydl:
+    with YoutubeDL(ydl_opts(skip_download=True)) as ydl:
         info = ydl.extract_info(url, download=False)
         out = source_dir(info["id"])
         if (out / "source.mp4").exists() and not force:
@@ -102,10 +145,8 @@ def fetch_one(url: str, force: bool = False) -> Path:
             timespec="seconds"),
     }, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    with YoutubeDL({"quiet": True, "no_warnings": True, "extractor_args": JA,
-                    "format": "bestvideo[height<=1080]+bestaudio/best",
-                    "merge_output_format": "mp4",
-                    "outtmpl": str(out / "source.%(ext)s")}) as ydl:
+    with YoutubeDL(ydl_opts(format=FORMAT, merge_output_format="mp4",
+                            outtmpl=str(out / "source.%(ext)s"))) as ydl:
         ydl.download([url])
 
     print(f"✓ {info['id']}  {info.get('title')}  字幕{len(cues)}行")
@@ -130,6 +171,7 @@ def main() -> None:
         urls += [it["url"] for it in items]
     if not urls:
         raise SystemExit("URL か --latest を指定してください")
+    check_pot_server()
     for u in urls:
         fetch_one(u, a.force)
 

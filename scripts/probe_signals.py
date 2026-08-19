@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.fetch_source import JA, source_dir  # noqa: E402
+from scripts.fetch_source import check_pot_server, source_dir, ydl_opts  # noqa: E402
 from scripts.signals import (aggregate_marks, lexical_marks,  # noqa: E402
                              loudness_scores, parse_astats, parse_heatmap)
 
@@ -73,11 +73,10 @@ def fetch_heatmap(video_id: str) -> list[dict]:
 def fetch_comments(video_id: str, limit: int = 400) -> list[str]:
     from yt_dlp import YoutubeDL
 
-    opts = {"quiet": True, "no_warnings": True, "skip_download": True,
-            "getcomments": True, "extractor_args": {
-                **JA, "youtubetab": {}, }}
-    opts["extractor_args"] = {"youtube": {"lang": ["ja"],
-                                          "max_comments": [str(limit), "all", "0"]}}
+    opts = ydl_opts(skip_download=True, getcomments=True,
+                    extractor_args={"youtube": {
+                        "lang": ["ja"],
+                        "max_comments": [str(limit), "all", "0"]}})
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}",
                                 download=False)

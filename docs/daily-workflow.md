@@ -78,6 +78,41 @@ python scripts/upload_youtube.py --auth-only
 **`orfevre6.27@gmail.com` には他にもチャンネル（日本の最新ニュースまるわかり）があるので、
 同意画面でアカウントを選んだだけでは足りない。表示チャンネル名を必ず確認すること。**
 
+## 本編を落とす前に：POトークンのサーバを起動する
+
+**2026-08-19、YouTube 側の変更で素の yt-dlp では本編が落とせなくなりました**（HTTP 403）。
+次の3つが揃って初めて通ります。ひとつでも欠けると症状が変わるだけで落ちます。
+
+| 要るもの | 無いとどうなるか |
+| --- | --- |
+| JSランタイム（node） | 署名を解けず `android vr` へ退避して **403** |
+| POトークンのプロバイダ | 媒体URLが **403** |
+| `web_safari` クライアント + ブラウザCookie | Cookie 無しだと **Only images are available** |
+
+1 と 3 は `scripts/fetch_source.py` の `COMPAT` / `CLIENT` に入れてあるので意識は要りません。
+**2 だけは常駐プロセスなので、毎回いちばん最初に起動してください。**
+
+```bash
+cd ~/bgutil-ytdlp-pot-provider/server && node build/main.js
+```
+
+起動していない場合 `fetch_source.py` は落とす前に止まって、このコマンドを表示します。
+初回だけ導入が要ります（プラグインとサーバのバージョンを揃えること。いまは 1.3.1）。
+
+```bash
+python -m pip install --user bgutil-ytdlp-pot-provider
+git clone --depth 1 --branch 1.3.1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git ~/bgutil-ytdlp-pot-provider
+cd ~/bgutil-ytdlp-pot-provider/server && npm install && npx tsc
+```
+
+**Cookie は Firefox から取っています。** Chrome と Edge は起動中だと
+プロファイルがロックされていて `Could not copy Chrome cookie database` で失敗します。
+Firefox を使っていない場合は `COMPAT["cookiesfrombrowser"]` を変えて、
+そのブラウザを閉じてから実行してください。
+
+**`web_safari` では映像と音声が別々の DASH が出ず、HLSの結合フォーマットだけになります。**
+1080p は itag 96 で、60分の回でおよそ1.3GB。取得は実測4〜5分でした。
+
 ## 1本作る
 
 ### 1. 本編を取る
