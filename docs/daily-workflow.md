@@ -307,6 +307,23 @@ python scripts/upload_youtube.py work/<id>       --schedule "2026-08-11T03:10:00
 `--schedule` は `--publish` と違い即時公開せず、privacyStatus を private のまま
 `publishAt` を仕込む。指定時刻に YouTube 側が自動で public に切り替える。
 
+**まだ上げていない動画にそのまま `--schedule` を付けて構いません。**
+その場合は `videos.insert` に `publishAt` を載せて1回で終わります。
+先に上げてから `--schedule` で入れ直すと `videos.update` の50ユニットが
+1本ごとに余分にかかり、**6本まとめると10,000の上限を超えます**
+（6×1,600＋6×50＋6×50＝10,200）。insert に載せれば9,900で収まります。
+
+### 上げる順番は長尺 → ショート
+
+**公開の順番はショートが先ですが、アップロードの順番は長尺が先です。**
+ショートの概要欄は長尺へのリンクを持つので、長尺が `published.json` に
+無いとショートは上がりません（そこで止まるだけで、クォータは消費しません）。
+
+```bash
+python scripts/upload_youtube.py work/<id>       --schedule "2026-08-20T03:10:00Z"  # 先
+python scripts/upload_youtube.py work/<id>-short --schedule "2026-08-20T03:00:00Z"  # 後
+```
+
 ### 1日に上げられるのは実質6本まで
 
 YouTube Data API の既定クォータは **10,000ユニット/日**。消費はこう。
@@ -315,7 +332,7 @@ YouTube Data API の既定クォータは **10,000ユニット/日**。消費は
 | --- | ---: |
 | `videos.insert`（アップロード） | **1,600** |
 | `thumbnails.set` | 50 |
-| `videos.update`（タイトル変更・予約） | 50 |
+| `videos.update`（タイトル変更・上げ直した後の予約） | 50 |
 | `videos.list`（確認） | 1 |
 
 **アップロード6本で9,600。** 日次の運用（長尺1本＋ショート1本＝3,200）なら余裕が

@@ -142,7 +142,8 @@ def with_long_form_link(meta: dict, description: str) -> str:
     return "\n".join(lines)
 
 
-def upload(service, workdir: Path, meta: dict, description: str, privacy: str) -> str:
+def upload(service, workdir: Path, meta: dict, description: str, privacy: str,
+           publish_at: str | None = None) -> str:
     from googleapiclient.http import MediaFileUpload
 
     video = workdir / "video.mp4"
@@ -162,6 +163,11 @@ def upload(service, workdir: Path, meta: dict, description: str, privacy: str) -
         },
         "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": False},
     }
+    # 予約は insert に載せる。上げてから videos.update で入れ直すと1本ごとに
+    # 50ユニット余分にかかり、6本まとめると 10,000/日 の上限を超える
+    if publish_at:
+        body["status"]["privacyStatus"] = "private"
+        body["status"]["publishAt"] = publish_at
 
     media = MediaFileUpload(str(video), chunksize=8 * 1024 * 1024,
                             resumable=True, mimetype="video/mp4")
@@ -229,7 +235,7 @@ def set_privacy(service, video_id: str, privacy: str, publish_at: str | None = N
 
 
 def record(meta: dict, video_id: str, privacy: str, thumb_ok: bool,
-           ch: dict | None) -> None:
+           ch: dict | None, publish_at: str | None = None) -> None:
     PUBLISHED.parent.mkdir(parents=True, exist_ok=True)
     data = (json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
             if PUBLISHED.exists() else {"videos": {}})
@@ -244,6 +250,8 @@ def record(meta: dict, video_id: str, privacy: str, thumb_ok: bool,
         "thumbnail_set": thumb_ok,
         "source_url": meta.get("source_url"),
     }
+    if publish_at:
+        data["videos"][meta["id"]]["publish_at"] = publish_at
     PUBLISHED.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -327,32 +335,46 @@ def main() -> None:
         return
 
     if a.publish or a.schedule:
-        data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
-        entry = data["videos"].get(meta["id"]) or die(
-            f"{meta['id']} はまだアップロードされていません")
-        if a.schedule:
+        data = (json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
+                if PUBLISHED.exists() else {"videos": {}})
+        entry = data["videos"].get(meta["id"])
+        # --schedule はまだ上げていないものにも使える。その場合は下の通常の
+        # アップロードへ落として、insert に publishAt を載せる（update を省ける）
+        if entry is None and a.publish:
+            die(f"{meta['id']} はまだアップロードされていません")
+        if entry is None:
+            print(f"- まだ上げていません。予約付きでアップロードします（{a.schedule}）")
+        elif a.schedule:
             set_privacy(service, entry["youtube_video_id"], "private", publish_at=a.schedule)
             entry["privacy_status"] = "private"
             entry["publish_at"] = a.schedule
             PUBLISHED.write_text(
                 json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             print(f"✓ 予約しました: {entry['url']}  → {a.schedule} に自動公開")
-        else:
+        elif a.publish:
             set_privacy(service, entry["youtube_video_id"], "public")
             entry["privacy_status"] = "public"
             PUBLISHED.write_text(
                 json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             print(f"✓ 公開しました: {entry['url']}")
-        return
+        if entry is not None:
+            return
 
     description = (a.workdir / "description.txt").read_text(encoding="utf-8")
     description = with_long_form_link(meta, description)
     privacy = meta.get("privacy_status", "private")
-    vid = upload(service, a.workdir, meta, description, privacy)
+    if a.schedule:
+        privacy = "private"
+    vid = upload(service, a.workdir, meta, description, privacy, a.schedule)
     thumb_ok = set_thumbnail(service, vid, a.workdir)
-    record(meta, vid, privacy, thumb_ok, ch)
+    record(meta, vid, privacy, thumb_ok, ch, a.schedule)
     print(f"✓ https://www.youtube.com/watch?v={vid}  ({privacy})")
-    print("  内容を確認してから --publish で公開してください")
+    if a.schedule:
+        print(f"  {a.schedule} に自動公開されます")
+        if not thumb_ok:
+            print("  ! サムネイル未設定。--retry-thumbnails で後から入れてください")
+    else:
+        print("  内容を確認してから --publish で公開してください")
 
 
 if __name__ == "__main__":
