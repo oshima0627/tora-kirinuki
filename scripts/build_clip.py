@@ -17,7 +17,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.cards import render_brief, render_point, render_verdict  # noqa: E402
+from scripts.cards import (overflowing, render_brief, render_point,  # noqa: E402
+                           render_verdict)
 from scripts.fetch_source import source_dir  # noqa: E402
 from scripts.recipe import build_description, validate  # noqa: E402
 
@@ -49,6 +50,11 @@ def preflight(recipe: dict, src_dir: Path) -> list[str]:
     for name in ("source.mp4", "subs.json"):
         if not (src_dir / name).exists():
             missing.append(f"{src_dir / name} が無い")
+
+    brief = recipe["cards"].get("brief") or {}
+    missing += overflowing(
+        brief.get("amount", ""), brief.get("business", ""), brief.get("profile", ""),
+        [p.get("text", "") for p in (recipe["cards"].get("points") or [])])
 
     start, end = recipe["clip"]["start"], recipe["clip"]["end"]
 
@@ -143,7 +149,8 @@ def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
                      thumb.get("bottom")).save(out / "thumb.png")
 
 
-def build(recipe_path: Path, dry_run: bool = False) -> Path:
+def build(recipe_path: Path, dry_run: bool = False,
+          thumb_only: bool = False) -> Path:
     recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
     src = source_dir(recipe["source_video_id"])
 
@@ -157,6 +164,15 @@ def build(recipe_path: Path, dry_run: bool = False) -> Path:
     length = end - start
     points = recipe["cards"].get("points") or []
     out = WORK / recipe["id"]
+
+    # **サムネは1回では決まらない。** 顔の切り取りも吹き出しの高さも、
+    # 実物を見て直すことになる。そのたびに15分の再エンコードを挟むと
+    # 確認そのものが雑になるので、絵だけ作り直せるようにしてある
+    if thumb_only:
+        out.mkdir(parents=True, exist_ok=True)
+        _thumbnail(recipe, src, out)
+        print(f"✓ {out / 'thumb.png'}")
+        return out
 
     if dry_run:
         print(f"[dry-run] {recipe['id']}")
@@ -217,8 +233,10 @@ def main() -> None:
     ap.add_argument("recipe", type=Path)
     ap.add_argument("--dry-run", action="store_true",
                     help="素材の確認と尺の試算だけ行う")
+    ap.add_argument("--thumb-only", action="store_true",
+                    help="thumb.png だけ作り直す（本編は再エンコードしない）")
     a = ap.parse_args()
-    build(a.recipe, a.dry_run)
+    build(a.recipe, a.dry_run, a.thumb_only)
 
 
 if __name__ == "__main__":

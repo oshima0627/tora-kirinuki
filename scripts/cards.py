@@ -209,3 +209,34 @@ def render_verdict(verdict: dict, size: tuple[int, int] = SIZE) -> Image.Image:
             d.text((x, yy), ln, font=f, fill=INK)
             yy += int(h * 0.072)
     return img
+
+
+# 案件カードの本文も論点カードも wrap(...)[:2] で2行に切り落とす。
+# **切れた文がそのまま焼き込まれるほうが、書き直す手間よりずっと害が大きい。**
+# 実際に事業内容が「送客してもらう座」で切れた状態でビルドが通った。
+MAX_LINES = 2
+
+
+def overflowing(amount: str, business: str, profile: str,
+                points: list[str], size: tuple[int, int] = SIZE) -> list[str]:
+    """2行に収まらない本文を名指しで返す。空なら全部収まっている。"""
+    w, h = size
+    d = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    out: list[str] = []
+
+    avail = w - int(w * 0.10) - int(w * 0.08)
+    f = pick_font(int(h * 0.052))
+    for label, value in (("事業内容", business), ("志願者", profile)):
+        value = (value or "").strip()
+        if value and len(wrap(d, value, f, avail)) > MAX_LINES:
+            out.append(f"案件カードの{label}が2行に収まらない（切り落とされる）: {value[:28]}…")
+
+    fp = pick_font(int(h * 0.058))
+    pw = w - int(w * 0.06) * 2 - int(w * 0.03)
+    for i, text in enumerate(points, 1):
+        text = (text or "").strip()
+        if text and len(wrap(d, text, fp, pw)) > MAX_LINES:
+            out.append(f"論点カード{i}が2行に収まらない（切り落とされる）: {text[:28]}…")
+
+    # 金額は fit_font で縮むので溢れない
+    return out

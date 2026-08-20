@@ -65,3 +65,27 @@ def test_案件カードは保存できる(tmp_path):
     p = tmp_path / "brief.png"
     render_brief({"amount": "希望金額 200万円"}).save(p)
     assert p.stat().st_size > 0
+
+
+def test_2行に収まる文はそのまま():
+    from scripts.cards import overflowing
+    assert overflowing("希望金額 200万円", "短い事業内容", "河合 直人（43）", []) == []
+
+
+def test_はみ出した本文を名指しで返す():
+    """`wrap(...)[:2]` は黙って切り落とす。**切れた文が画面に出るほうが害が大きい。**
+
+    実際に事業内容が「送客してもらう座」で切れたまま焼き込まれた。
+    """
+    from scripts.cards import overflowing
+    long_text = "医師と理学療法士が同行する医療サポート付き海外旅行。" * 3
+    got = overflowing("希望金額 100万円", long_text, "河合 直人（43）", [])
+    assert len(got) == 1
+    assert "事業内容" in got[0]
+
+
+def test_論点カードのはみ出しも拾う():
+    from scripts.cards import overflowing
+    got = overflowing("100万円", "短い", "短い", ["あ" * 200, "短い論点"])
+    assert len(got) == 1
+    assert "論点カード1" in got[0]

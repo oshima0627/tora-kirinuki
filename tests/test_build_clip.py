@@ -98,3 +98,35 @@ def test_重ねる順に入力番号が振られる():
     assert f.startswith("[0:v]scale=1920:1080")
     assert "[v0][1:v]overlay" in f
     assert f.endswith("[v3]")
+
+
+def test_サムネだけ作り直せる(tmp_path, monkeypatch):
+    """サムネの作り直しに本編の再エンコードを要求しない。
+
+    図解の位置や顔の切り取りは1回で決まらず、実際に何度も作り直している。
+    15分の再エンコードを毎回挟むと確認が雑になる。
+    """
+    import json
+    from scripts import build_clip
+
+    r = recipe()
+    src = tmp_path / "work" / r["source_video_id"]
+    src.mkdir(parents=True)
+    (src / "source.mp4").write_bytes(b"x")
+    (src / "subs.json").write_text("[]", encoding="utf-8")
+    (src / "meta.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(build_clip, "WORK", tmp_path / "work")
+    monkeypatch.setattr(build_clip, "source_dir", lambda vid: src)
+
+    called = []
+    monkeypatch.setattr(build_clip, "_run", lambda cmd: called.append(cmd))
+    monkeypatch.setattr(build_clip, "_thumbnail",
+                        lambda r, s, o: (o / "thumb.png").write_bytes(b"png"))
+
+    path = tmp_path / "r.json"
+    path.write_text(json.dumps(r, ensure_ascii=False), encoding="utf-8")
+
+    out = build_clip.build(path, thumb_only=True)
+    assert (out / "thumb.png").exists()
+    assert called == [], "ffmpeg を呼んではいけない"
