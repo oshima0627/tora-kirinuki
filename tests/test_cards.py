@@ -89,3 +89,21 @@ def test_論点カードのはみ出しも拾う():
     got = overflowing("100万円", "短い", "短い", ["あ" * 200, "短い論点"])
     assert len(got) == 1
     assert "論点カード1" in got[0]
+
+
+def test_判定カードの詳細も3行で切られる():
+    """`render_verdict` は detail を `wrap(...)[:3]` で切る。
+
+    実ビルドで「3人で均等に受け取る形を選」で終わっていた。
+    """
+    from scripts.cards import overflowing
+    long_detail = "積み上げは270万円に達して希望額200万円を超えた。" * 6
+    got = overflowing("100万円", "短い", "短い", [], verdict_detail=long_detail)
+    assert len(got) == 1
+    assert "判定カード" in got[0]
+
+
+def test_判定カードが3行に収まればそのまま():
+    from scripts.cards import overflowing
+    assert overflowing("100万円", "短い", "短い", [],
+                       verdict_detail="希望額ちょうどで成立した") == []

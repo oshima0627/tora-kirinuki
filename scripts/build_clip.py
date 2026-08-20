@@ -54,7 +54,8 @@ def preflight(recipe: dict, src_dir: Path) -> list[str]:
     brief = recipe["cards"].get("brief") or {}
     missing += overflowing(
         brief.get("amount", ""), brief.get("business", ""), brief.get("profile", ""),
-        [p.get("text", "") for p in (recipe["cards"].get("points") or [])])
+        [p.get("text", "") for p in (recipe["cards"].get("points") or [])],
+        verdict_detail=((recipe["cards"].get("verdict") or {}).get("detail") or ""))
 
     start, end = recipe["clip"]["start"], recipe["clip"]["end"]
 

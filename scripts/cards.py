@@ -217,9 +217,13 @@ def render_verdict(verdict: dict, size: tuple[int, int] = SIZE) -> Image.Image:
 MAX_LINES = 2
 
 
+VERDICT_MAX_LINES = 3      # render_verdict の detail は3行で切られる
+
+
 def overflowing(amount: str, business: str, profile: str,
-                points: list[str], size: tuple[int, int] = SIZE) -> list[str]:
-    """2行に収まらない本文を名指しで返す。空なら全部収まっている。"""
+                points: list[str], verdict_detail: str = "",
+                size: tuple[int, int] = SIZE) -> list[str]:
+    """収まらない本文を名指しで返す。空なら全部収まっている。"""
     w, h = size
     d = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     out: list[str] = []
@@ -238,5 +242,11 @@ def overflowing(amount: str, business: str, profile: str,
         if text and len(wrap(d, text, fp, pw)) > MAX_LINES:
             out.append(f"論点カード{i}が2行に収まらない（切り落とされる）: {text[:28]}…")
 
-    # 金額は fit_font で縮むので溢れない
+    detail = (verdict_detail or "").strip()
+    if detail:
+        fv = pick_font(int(h * 0.056))
+        if len(wrap(d, detail, fv, avail)) > VERDICT_MAX_LINES:
+            out.append(f"判定カードの詳細が3行に収まらない（切り落とされる）: {detail[:28]}…")
+
+    # 金額・判定結果は fit_font で縮むので溢れない
     return out
