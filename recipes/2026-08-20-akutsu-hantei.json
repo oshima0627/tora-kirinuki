@@ -162,15 +162,15 @@
     "faces": [
       {
         "at": 2801.0,
-        "x": 0.62,
-        "crop_top": 0.06,
-        "crop_bottom": 0.1
+        "x": 0.58,
+        "crop_top": 0.15,
+        "crop_bottom": 0.3
       },
       {
-        "at": 2762.0,
-        "x": 0.32,
-        "crop_top": 0.04,
-        "crop_bottom": 0.12
+        "at": 2905.0,
+        "x": 0.68,
+        "crop_top": 0.14,
+        "crop_bottom": 0.2
       }
     ],
     "top": [

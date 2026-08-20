@@ -163,12 +163,14 @@
       {
         "at": 1870.0,
         "x": 0.5,
-        "crop_top": 0.05
+        "crop_top": 0.13,
+        "crop_bottom": 0.28
       },
       {
         "at": 1935.0,
         "x": 0.55,
-        "crop_top": 0.05
+        "crop_top": 0.13,
+        "crop_bottom": 0.2
       }
     ],
     "top": [

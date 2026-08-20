@@ -180,13 +180,13 @@
         "at": 1246.0,
         "x": 0.53,
         "crop_top": 0.42,
-        "crop_bottom": 0.02
+        "crop_bottom": 0.16
       },
       {
-        "at": 1185.0,
-        "x": 0.45,
-        "crop_top": 0.05,
-        "crop_bottom": 0.25
+        "at": 1152.0,
+        "x": 0.28,
+        "crop_top": 0.155,
+        "crop_bottom": 0.28
       }
     ],
     "top": [
