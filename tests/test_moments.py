@@ -115,3 +115,38 @@ def test_候補に内訳が付く():
     cues = [{"t": float(t), "line": "x"} for t in range(0, 600, 10)]
     cands = find_candidates(_sig(), cues, 600, count=1, length=200.0)
     assert "signals" in cands[0]
+
+
+def _wide_signals():
+    s = base_signals()
+    # 100秒付近と500秒付近に山を2つ作る。100のほうが高い
+    s["loudness"] = [{"t": float(t), "score": 0.0} for t in range(600)]
+    s["loudness"][100]["score"] = 1.0
+    s["loudness"][500]["score"] = 0.6
+    return s
+
+
+def test_使用済み区間を除くと次の山が返る():
+    # 既に切った区間からもう一本作るときに、同じ場所を二度出さないため
+    from scripts.moments import find_candidates
+    plain = find_candidates(_wide_signals(), [], 600, count=1, length=100.0)
+    assert plain[0]["start"] <= 100 <= plain[0]["end"]
+
+    got = find_candidates(_wide_signals(), [], 600, count=1, length=100.0,
+                          exclude=[(0.0, 200.0)])
+    assert got and got[0]["start"] >= 200.0
+    assert got[0]["start"] <= 500 <= got[0]["end"]
+
+
+def test_除外区間に1秒でもかかる候補は返さない():
+    from scripts.moments import find_candidates
+    got = find_candidates(_wide_signals(), [], 600, count=5, length=100.0,
+                          exclude=[(0.0, 200.0)])
+    assert all(c["start"] >= 200.0 for c in got)
+
+
+def test_除外区間を指定しなければ従来どおり():
+    from scripts.moments import find_candidates
+    a = find_candidates(_wide_signals(), [], 600, count=2, length=100.0)
+    b = find_candidates(_wide_signals(), [], 600, count=2, length=100.0, exclude=[])
+    assert a == b

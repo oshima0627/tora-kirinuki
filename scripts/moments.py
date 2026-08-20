@@ -111,11 +111,16 @@ def signal_counts(signals: dict, start: float, end: float) -> dict[str, int]:
 
 def find_candidates(signals: dict, cues: list[dict], duration: int,
                     count: int = 5, length: float = 420.0,
-                    prefer: str | None = None) -> list[dict]:
+                    prefer: str | None = None,
+                    exclude: list[tuple[float, float]] | None = None) -> list[dict]:
     """スコアの積分が大きい区間を、重ならないように上から取る。
 
     ヒートマップが無くても動く。令和の虎Second では30本中23本で
     ヒートマップが存在しないため、ここが動かないと大半の動画で候補ゼロになる。
+
+    exclude に区間を渡すと、そこに1秒でもかかる候補を落とす。**同じ配信から
+    2本目を切るときに使う。** 初期の8本は既定420秒で切っていたので、1本あたり
+    3〜7分しか使っておらず、同じ回に25〜60分の未使用が残っている。
     """
     grid = score_grid(signals, duration, prefer)
     if not grid:
@@ -137,6 +142,8 @@ def find_candidates(signals: dict, cues: list[dict], duration: int,
         if end <= start:
             continue
         if any(start < p["end"] and p["start"] < end for p in picked):
+            continue
+        if any(start < ex_end and ex_start < end for ex_start, ex_end in (exclude or [])):
             continue
         picked.append({
             "start": start, "end": end, "score": round(total, 3),

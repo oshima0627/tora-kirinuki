@@ -29,6 +29,25 @@ def hms(sec: float) -> str:
     return f"{s // 3600:02d}:{s % 3600 // 60:02d}:{s % 60:02d}"
 
 
+def used_ranges(video_id: str) -> list[tuple[float, float]]:
+    """recipes/ の中で、この配信から既に切った区間を集める。"""
+    out: list[tuple[float, float]] = []
+    root = Path(__file__).resolve().parents[1] / "recipes"
+    for f in sorted(root.glob("*.json")):
+        if f.name.startswith("_") or f.stem.endswith("-test"):
+            continue
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if d.get("source_video_id") != video_id:
+            continue
+        clip = d.get("clip") or {}
+        if clip.get("start") is not None and clip.get("end") is not None:
+            out.append((float(clip["start"]), float(clip["end"])))
+    return sorted(out)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("video_id")
@@ -42,6 +61,10 @@ def main() -> None:
     # 実際に8本すべてが判定パートからの切り出しになっていた
     ap.add_argument("--prefer", choices=("詰め", "判定", "金額"),
                     help="この語彙の重みを上げて候補を選び直す")
+    # 同じ配信から2本目を切るときに使う。初期の8本は420秒で切っていたので、
+    # 1回あたり25〜60分が手つかずで残っている
+    ap.add_argument("--exclude-used", action="store_true",
+                    help="recipes/ で既に使った区間にかかる候補を落とす")
     a = ap.parse_args()
 
     d = source_dir(a.video_id)
@@ -55,7 +78,12 @@ def main() -> None:
     meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
     duration = int(meta.get("duration_sec") or 0)
 
-    cands = find_candidates(signals, cues, duration, a.count, a.length, a.prefer)
+    used = used_ranges(a.video_id) if a.exclude_used else []
+    if used:
+        for st, en in used:
+            print(f"使用済みを除外: {hms(st)}-{hms(en)}")
+    cands = find_candidates(signals, cues, duration, a.count, a.length, a.prefer,
+                            exclude=used)
     (d / "candidates.json").write_text(
         json.dumps(cands, ensure_ascii=False, indent=1), encoding="utf-8")
 
