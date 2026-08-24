@@ -116,10 +116,18 @@ def burn_plan(cues: list[dict], start: float, end: float,
 
     plan: list[dict] = []
     for i, (t, text) in enumerate(kept):
-        c_start, c_end = t, (kept[i + 1][0] if i + 1 < len(kept) else end)
-        c_start, c_end = max(c_start, start), min(c_end, end)
+        c_end_raw = kept[i + 1][0] if i + 1 < len(kept) else end
+        c_start, c_end = max(t, start), min(c_end_raw, end)
         if c_end <= c_start:
             continue
+
+        # **区間の頭で切れたキューは、もう喋り終えたぶんを落とす。** 18秒前に
+        # 始まった長いキューの全文が区間内の8秒に詰め込まれ、1枚0.9秒で
+        # 流れていた（komazawa-ginkou で実測）。時間の比で後ろから残す
+        span = c_end_raw - t
+        if c_start > t and span > 0:
+            keep = max(1, round(len(text) * (c_end - c_start) / span))
+            text = text[-keep:]
 
         chunks = _split(text, max_chars)
         total = sum(len(x) for x in chunks) or 1

@@ -184,3 +184,13 @@ def test_使われなかった訂正を名指しする():
     from scripts.subtitles import unused_fixes
     c = cues((100.0, "その悪さんが今日全然元気なく"))
     assert unused_fixes(c, 100.0, 110.0, {"その悪": "阿久津", "居抜き": "居抜"}) == ["居抜き"]
+
+
+def test_区間の頭で切れたキューは喋り終えたぶんを落とす():
+    # 区間の18秒前に始まった長いキューの全文が、区間内の8秒に詰め込まれて
+    # 1枚0.9秒で流れていた（komazawa-ginkou で実測）。もう喋り終えた前半は出さない
+    long = "".join(chr(ord("あ") + i % 40) for i in range(100))
+    plan = burn_plan(cues((100.0, long), (120.0, "次の発言です。")), 110.0, 130.0)
+    kept = "".join(p["text"] for p in plan if p["text"] != "次の発言です。")
+    assert long.endswith(kept)
+    assert 40 <= len(kept) <= 60
