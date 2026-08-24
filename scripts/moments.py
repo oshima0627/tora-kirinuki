@@ -153,3 +153,104 @@ def find_candidates(signals: dict, cues: list[dict], duration: int,
         if len(picked) >= count:
             break
     return picked
+
+
+# 巻き戻し。**信号のピークで切ると「山の頂上」に着地する。** 頂上には
+# そこへ至る登り（前提）が入っていない。実測で、投稿済み19本のうち18本が
+# 発話の途中から始まっていた（最大 +18.4秒）。
+#
+# 例（2026-08-19-akutsu-gyutan / short.start=2275.0）:
+#   2264.44 ちょっとある推理していいですか?僕   ← 前提の頭。カットの外
+#   2267.52 その悪さんが今日全然元気なくプラス   ← 根拠。カットの外
+#   2272.96 結構マイナスになることばっか…       ← 根拠。カットの外
+#   2275.00 ← ここから切っていた
+#   2275.96 で、なんでかって言うと               ← 結論の接続詞から始まる
+REWIND_MAX_BACK = 15.0
+SENTENCE_END = ("。", "．", ".", "？", "?", "！", "!")
+
+# ASRは相槌と1文字を独立したキューとして吐く。ここで止めても前提は入らない
+FILLERS = {"はい", "うん", "ええ", "えっ", "あー", "なるほど", "そうですね",
+           "そうそう", "確かに", "はいはい", "オッケー", "ありがとうございます"}
+NOTE_CHARS = "[]［］"
+
+# **接続詞で始まるキューは文の頭ではない。** 直前が「。」で終わっていても、
+# 中身は前の話の続きになる。「で、なんでかって言うと」から始めたのが
+# 今回のコメント（「どういう意味なのか全くわからない」）の直接の原因だった
+CONTINUATIONS = ("で、", "でも", "ですから", "だから", "だけど", "ただ", "それで",
+                 "そして", "そこで", "なので", "つまり", "けど", "が、", "あと",
+                 "ま、", "まあ", "っていうか", "ていうか", "というか", "で,")
+
+
+def _core(line: str) -> str:
+    """音の注記・先頭の相槌・句読点を落とした中身を返す。
+
+    ASRは「はい。で、子供にもそうです。」のように相槌と本文を1キューに混ぜる。
+    先頭の相槌を落とさないと、続きの接続詞を見逃す。
+    """
+    s = (line or "").strip()
+    while s and s[0] in NOTE_CHARS:                      # [笑い] のようなキュー
+        close = max(s.find("]"), s.find("］"))
+        if close < 0:
+            break
+        s = s[close + 1:].strip()
+    for _ in range(3):                                   # 相槌が連なることがある
+        for f in FILLERS:
+            if s.startswith(f) and s[len(f):len(f) + 1] in ("。", "、", "．"):
+                s = s[len(f) + 1:].strip()
+                break
+        else:
+            break
+    return s.strip("".join(SENTENCE_END) + "、 　")
+
+
+def is_fragment(line: str) -> bool:
+    """相槌・音の注記・1文字キューなら True。ここでは切り出しを始めない。"""
+    core = _core(line)
+    return len(core) < 3 or core in FILLERS
+
+
+def continues_previous(line: str) -> bool:
+    """接続詞で始まる＝前の話の続きなら True。ここで切ると前提が入らない。"""
+    return _core(line).startswith(CONTINUATIONS)
+
+
+def rewind_to_topic_head(start: float, cues: list[dict],
+                         max_back: float = REWIND_MAX_BACK) -> dict:
+    """開始点を巻き戻して {"start", "kind", "line"} を返す。
+
+    着地の質は3段階ある。**どれで着地したかを返すのは --dry-run で
+    目で止められるようにするため。**
+
+      文頭      直前のキューが文末（。？!）で終わっている＝文の頭。狙いはここ
+      境界      文頭が見つからず、キューの頭に寄せただけ。前提が入っていない
+                可能性が高いので、人が区間を選び直す判断材料になる
+      そのまま  max_back 秒の内に何も無かった。行き過ぎるくらいなら動かさない
+    """
+    if not cues:
+        return {"start": start, "kind": "そのまま", "line": ""}
+    i = max((k for k, c in enumerate(cues) if c["t"] <= start + 1e-9), default=None)
+    if i is None:
+        return {"start": start, "kind": "そのまま", "line": ""}
+
+    limit = start - max_back
+    boundary = None
+    for j in range(i, -1, -1):
+        if cues[j]["t"] < limit:
+            break
+        line = cues[j]["line"]
+        if is_fragment(line):
+            continue
+        if boundary is None:
+            boundary = j
+        if continues_previous(line):
+            continue
+        # 先頭キューを無条件に文頭とはみなさない。「リストが全文である」という
+        # 前提が要るうえ、証明できないものは「境界」で人の目に掛けたほうがよい
+        prev = cues[j - 1]["line"].rstrip() if j > 0 else ""
+        if prev.endswith(SENTENCE_END):
+            return {"start": cues[j]["t"], "kind": "文頭", "line": line}
+
+    if boundary is not None and cues[boundary]["t"] < start:
+        return {"start": cues[boundary]["t"], "kind": "境界",
+                "line": cues[boundary]["line"]}
+    return {"start": start, "kind": "そのまま", "line": ""}
