@@ -58,8 +58,12 @@ SHORT_MAX_SEC = 180.0     # Shorts として扱われる上限（YouTube の仕�
 SHORT_RECOMMENDED_SEC = 75.0
 
 
-def validate_short(recipe: dict) -> list[str]:
+def validate_short(recipe: dict, cues: list[dict] | None = None) -> list[str]:
     """ショートの区間を検証する。長尺と同じレシピから作るので共通項目は validate に任せる。
+
+    cues（元動画の字幕）を渡すと、**実際にビルドされる区間**で検証する。
+    開始点は build_short が話題の頭まで巻き戻すので、レシピの start より
+    手前から始まる。尺の判定はその巻き戻し後の長さで行う。
 
     落とすべきでない指摘は警告の一覧として返す。
     """
@@ -70,9 +74,6 @@ def validate_short(recipe: dict) -> list[str]:
     start, end = short.get("start"), short.get("end")
     if start is None or end is None or end <= start:
         raise ValueError(f"short.clip の範囲が不正: start={start} end={end}")
-    if end - start > SHORT_MAX_SEC:
-        raise ValueError(
-            f"short が {end - start:.0f}秒。Shorts の上限 {SHORT_MAX_SEC:.0f}秒を超えている")
 
     if not (short.get("hook") or "").strip():
         raise ValueError(
@@ -80,6 +81,26 @@ def validate_short(recipe: dict) -> list[str]:
             "フック無しで出す意味がない")
 
     warnings = []
+    if cues is not None:
+        from scripts.moments import rewind_to_topic_head
+
+        landed = rewind_to_topic_head(start, cues)
+        if landed["start"] < start:
+            warnings.append(
+                f"開始が発話の途中だったので {start:.1f} → {landed['start']:.1f} まで"
+                f"巻き戻した [{landed['kind']}] {landed['line'][:36]}")
+        start = landed["start"]
+
+        # **字幕が焼けない区間は出さない。** 何を言っているか分からない切り抜きに
+        # なる。「切り抜き方が下手でどういう意味なのか全くわからない」（2026-08-22）
+        if not any(start <= c["t"] < end for c in cues):
+            raise ValueError(
+                f"short の区間（{start:.1f}-{end:.1f}）に字幕が1つも無い。"
+                "字幕を焼けないショートは意味が伝わらない")
+
+    if end - start > SHORT_MAX_SEC:
+        raise ValueError(
+            f"short が {end - start:.0f}秒。Shorts の上限 {SHORT_MAX_SEC:.0f}秒を超えている")
     if end - start > SHORT_RECOMMENDED_SEC:
         warnings.append(
             f"short が {end - start:.0f}秒。伸びている競合は22〜73秒で、"

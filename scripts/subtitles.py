@@ -55,6 +55,7 @@ MIN_TAIL = 4                # これ未満の余りは前の断片にくっつ�
 # 断片の先頭に置くと読めなくなる文字。「…思っち」「ゃった。」のような割れ方を防ぐ
 NEVER_LEAD = "ゃゅょぁぃぅぇぉっーゎ、。，．)）」』"
 MIN_SHOW = 0.7              # これ未満しか出ない字幕は隣と繋げる（実測0.28秒があった）
+MAX_SHOW = 8.0              # これを超えて1枚を出し続けない（VTRや音楽で字幕が切れる）
 NOTE_RE = re.compile(r"[\[［][^\]］]*[\]］]")     # [笑い] [拍手] [鼻息] [音楽]
 
 # ASRは固有名詞と数字を崩す。実測で「土橋さん→その悪さん」「焼き鳥3級→焼き鳥産」。
@@ -113,6 +114,7 @@ def burn_plan(cues: list[dict], start: float, end: float,
         for k, chunk in enumerate(chunks):
             # 最後の断片はキューの終わりに合わせる。按分の丸めで隙間を空けない
             nxt = c_end if k == len(chunks) - 1 else at + (c_end - c_start) * len(chunk) / total
+            nxt = min(nxt, at + MAX_SHOW)          # 1枚を出しっぱなしにしない
             plan.append({"start": round(at - start, 3),
                          "end": round(nxt - start, 3), "text": chunk})
             at = nxt
