@@ -114,14 +114,16 @@ def render_point(text: str, size: tuple[int, int] = SIZE) -> Image.Image:
 # 競合の上位ショートを落として採寸した型に合わせる。
 #
 #   上部の黒帯   見出し2行（白＋赤の混色、太い黒縁）
-#   中央の映像   **16:9を縦にトリミングして顔を大きく**。ここが一番効く
-#   下部の黒帯   発言をそのまま字幕で
+#   中央の映像   **16:9のまま等倍で置く**（1080x608）
+#   下部の黒帯   時間同期の字幕
 #
-# 16:9をそのまま幅に合わせると映像が小さくなり、縦型として弱い。
-# 上下の黒帯は元動画の告知と字幕を覆い隠す役割も兼ねる。
+# **横にトリミングするのをやめた。** 元動画は制作側が画面下いっぱいに要約
+# テロップを焼き込んでいる（理解の助けになる素材）。横を中央61%に詰めていたので、
+# 実測で「マイナスな発言が多い」が「ナスな発言が多」に化けて画面中央に残っていた。
+# 顔は小さくなるが、読めないテロップの残骸を大きく見せるよりよい。
 SHORT_SIZE = (1080, 1920)
-SHORT_TOP = 0.24             # 上の黒帯
-SHORT_BOTTOM = 0.24          # 下の黒帯
+SHORT_TOP = 0.3125           # 上の黒帯（600px）
+SHORT_BOTTOM = 0.3709        # 下の黒帯（712px）。映像は 1080x608 = 16:9
 SHORT_INK = (250, 250, 252)
 SHORT_RED = (240, 40, 44)
 SHORT_COLORS = {"w": SHORT_INK, "r": SHORT_RED, "y": (255, 226, 60)}
@@ -250,3 +252,54 @@ def overflowing(amount: str, business: str, profile: str,
 
     # 金額・判定結果は fit_font で縮むので溢れない
     return out
+
+
+# 下帯の字幕。**以前はPNGを1枚焼いて65秒ずっと重ねていた。**
+# 会話は進むのに文字は動かないので、聞き取れない部分を補えないうえ、
+# 画面の人物が固定の台詞を言っているように見えた（実際は別人の発言）。
+CAPTION_MAX_LINES = 3
+CAPTION_SIZE = int(SHORT_SIZE[1] * 0.048)
+CAPTION_MIN = 44
+
+
+def _caption_layout(text: str) -> tuple[list[str], int]:
+    """収まるところまで小さくして (行, フォントサイズ) を返す。**文字は落とさない。**
+
+    `wrap(...)[:2]` で本文を黙って切り落とし、事業内容が「送客してもらう座」で
+    終わったまま3本投稿してしまった前科がある。字幕でも同じことをしない。
+    """
+    text = (text or "").strip()
+    if not text:
+        return [], CAPTION_SIZE
+    d = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    avail = int(SHORT_SIZE[0] * 0.90)
+    size = CAPTION_SIZE
+    while size > CAPTION_MIN:
+        lines = wrap(d, text, pick_font(size), avail)
+        if len(lines) <= CAPTION_MAX_LINES:
+            return lines, size
+        size -= 4
+    return wrap(d, text, pick_font(CAPTION_MIN), avail), CAPTION_MIN
+
+
+def caption_lines(text: str) -> list[str]:
+    return _caption_layout(text)[0]
+
+
+def render_short_caption(text: str,
+                         size: tuple[int, int] = SHORT_SIZE) -> Image.Image:
+    """下帯に字幕を描いた透過画像を返す。映像の上に時間指定で重ねる。"""
+    w, h = size
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    lines, fs = _caption_layout(text)
+    if not lines:
+        return img
+
+    d = ImageDraw.Draw(img)
+    band_top = int(h * (1 - SHORT_BOTTOM))
+    lh = int(fs * 1.24)
+    y = band_top + (h - band_top - lh * len(lines)) // 2 + int(fs * 0.95)
+    for ln in lines:
+        _short_row(d, [{"t": ln, "c": "w"}], w // 2, y, fs)
+        y += lh
+    return img
