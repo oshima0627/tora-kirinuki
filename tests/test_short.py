@@ -89,3 +89,38 @@ def test_推奨より長いショートは警告になる():
 def test_推奨に収まれば警告は出ない():
     from scripts.recipe import validate_short
     assert validate_short({"short": {"start": 0.0, "end": 65.0, "hook": "h"}}) == []
+
+
+def cue_list(*pairs) -> list[dict]:
+    return [{"t": t, "line": line} for t, line in pairs]
+
+
+def test_区間に字幕が無ければ落ちる():
+    # 字幕を焼けない＝意味が伝わらない。それがコメントの原因だった
+    cues = cue_list((10.0, "ぜんぜん違う場所の話です。"))
+    with pytest.raises(ValueError, match="字幕"):
+        validate_short(with_short(start=2300.0, end=2350.0), cues)
+
+
+def test_字幕があれば通る():
+    cues = cue_list((2300.0, "ここから話が始まります。"), (2310.0, "続きです。"))
+    validate_short(with_short(start=2300.0, end=2350.0), cues)
+
+
+def test_巻き戻した結果3分を超えたら落ちる():
+    cues = cue_list((0.0, "前の話が終わりました。"), (5.0, "ここから長い話です。"))
+    with pytest.raises(ValueError, match="180"):
+        validate_short(with_short(start=6.0, end=186.0), cues)
+
+
+def test_巻き戻したぶんも警告の尺に含める():
+    # 65秒のつもりが巻き戻しで76秒になることがある。黙って通さない
+    cues = cue_list((0.0, "前の話が終わりました。"), (5.0, "ここから話が始まります。"))
+    warnings = validate_short(with_short(start=16.0, end=81.0), cues)
+    assert any("完走されにくい" in w for w in warnings)
+
+
+def test_開始が発話の途中なら警告する():
+    cues = cue_list((0.0, "前の話が終わりました。"), (5.0, "ここから話が始まります。"))
+    warnings = validate_short(with_short(start=8.0, end=60.0), cues)
+    assert any("5.0" in w for w in warnings)
