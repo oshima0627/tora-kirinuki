@@ -175,7 +175,7 @@
       "privacy_status": "private",
       "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
       "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
-      "thumbnail_set": false,
+      "thumbnail_set": true,
       "source_url": "https://www.youtube.com/watch?v=DSCYmCBAp_I",
       "publish_at": "2026-08-18T03:10:00Z"
     },
@@ -186,7 +186,7 @@
       "privacy_status": "private",
       "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
       "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
-      "thumbnail_set": false,
+      "thumbnail_set": true,
       "source_url": "https://www.youtube.com/watch?v=DSCYmCBAp_I",
       "publish_at": "2026-08-18T03:00:00Z"
     },
@@ -318,9 +318,53 @@
       "privacy_status": "private",
       "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
       "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
-      "thumbnail_set": false,
+      "thumbnail_set": true,
       "source_url": "https://www.youtube.com/watch?v=xtJI21E2-xE",
       "publish_at": "2026-08-25T03:00:00Z"
+    },
+    "2026-08-20-akutsu-hantei": {
+      "youtube_video_id": "O3_81hOC0j4",
+      "url": "https://www.youtube.com/watch?v=O3_81hOC0j4",
+      "title": "【令和の虎】虎「お前の思い通りにはさせねえ」ごめんなさい0で決着した後、虎が500円牛タン食べ放題を実食しに行った15分【令和の虎Second 切り抜き】",
+      "privacy_status": "private",
+      "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
+      "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
+      "thumbnail_set": true,
+      "source_url": "https://www.youtube.com/watch?v=79U5ErgT_Js",
+      "publish_at": "2026-08-26T03:10:00Z"
+    },
+    "2026-08-20-akutsu-hantei-short": {
+      "youtube_video_id": "Atsm_3CKLx8",
+      "url": "https://www.youtube.com/watch?v=Atsm_3CKLx8",
+      "title": "【令和の虎】虎「全然嬉しそうじゃない」ごめんなさい0なのに反応が薄すぎた瞬間 #令和の虎 #切り抜き #ビジネス #起業",
+      "privacy_status": "private",
+      "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
+      "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
+      "thumbnail_set": true,
+      "source_url": "https://www.youtube.com/watch?v=79U5ErgT_Js",
+      "publish_at": "2026-08-26T03:00:00Z"
+    },
+    "2026-08-20-imamura-ai": {
+      "youtube_video_id": "aPof751FH1U",
+      "url": "https://www.youtube.com/watch?v=aPof751FH1U",
+      "title": "【令和の虎】虎「今のうちに辞めた方がいい」AI事業を畳むよう勧められた志願者が真っ向から反論した15分【令和の虎Second 切り抜き】",
+      "privacy_status": "private",
+      "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
+      "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
+      "thumbnail_set": true,
+      "source_url": "https://www.youtube.com/watch?v=bah_FU172NA",
+      "publish_at": "2026-08-27T03:10:00Z"
+    },
+    "2026-08-20-imamura-ai-short": {
+      "youtube_video_id": "irfzXTmIqQQ",
+      "url": "https://www.youtube.com/watch?v=irfzXTmIqQQ",
+      "title": "【令和の虎】虎「今のうちに辞めた方がいい」と言われた志願者の返し #令和の虎 #切り抜き #ビジネス #起業",
+      "privacy_status": "private",
+      "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
+      "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
+      "thumbnail_set": true,
+      "source_url": "https://www.youtube.com/watch?v=bah_FU172NA",
+      "publish_at": "2026-08-27T03:00:00Z"
     }
   }
 }
