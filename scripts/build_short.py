@@ -7,8 +7,12 @@
 長尺（build_clip.py）とレシピを共有する。素材・候補・カードの文言をそのまま
 使えるので、ショートを足しても調べ直しが要らない。
 
-元映像は16:9。縦型では中央を1:1で抜き、上にフック・下に図解を置く。
-全画面クロップより情報量が入り、図解という差別化軸を縦でも保てる。
+**2026-08-24 に作り直した。** 視聴者コメント「切り抜き方が下手でどういう意味なのか
+全くわからない」（唯一付いたコメント）を受けて実物を測った結果、3つ直した。
+
+  1. 開始点を話題の頭まで巻き戻す（19本中18本が発話の途中から始まっていた）
+  2. 字幕を時間同期で焼く（それまでは1枚のPNGを全区間に重ねていた）
+  3. 横のトリミングをやめる（元動画の要約テロップが左右に切れて読めなかった）
 """
 
 from __future__ import annotations
@@ -23,9 +27,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.build_clip import probe_duration  # noqa: E402
 from scripts.cards import (SHORT_BOTTOM, SHORT_SIZE, SHORT_TOP,  # noqa: E402
-                           render_short_frame)
+                           render_short_caption, render_short_frame)
 from scripts.fetch_source import source_dir  # noqa: E402
+from scripts.moments import rewind_to_topic_head  # noqa: E402
 from scripts.recipe import build_description, validate, validate_short  # noqa: E402
+from scripts.subtitles import (burn_plan, risky_lines,  # noqa: E402
+                               unused_fixes)
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -37,14 +44,31 @@ DUR_TOLERANCE = 1.0
 FPS = 30
 
 
-def preflight(recipe: dict, src_dir: Path) -> list[str]:
+def load_cues(src_dir: Path) -> list[dict]:
+    path = src_dir / "subs.json"
+    if not path.exists():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def plan_span(recipe: dict, cues: list[dict]) -> tuple[float, float, dict]:
+    """実際にビルドする区間と、巻き戻しの着地点を返す。"""
+    short = recipe["short"]
+    landed = rewind_to_topic_head(short["start"], cues)
+    return landed["start"], short["end"], landed
+
+
+def preflight(recipe: dict, src_dir: Path, cues: list[dict]) -> list[str]:
     validate(recipe)
-    for w in validate_short(recipe):
+    for w in validate_short(recipe, cues or None):
         print(f"! {w}")
 
     missing = []
     if not (src_dir / "source.mp4").exists():
         missing.append(f"{src_dir / 'source.mp4'} が無い")
+    # **字幕が無ければ焼けない。** 字幕の無いショートを出したのが今回の原因
+    if not cues:
+        missing.append(f"{src_dir / 'subs.json'} が無い。fetch_source.py を先に実行すること")
 
     meta_path = src_dir / "meta.json"
     if meta_path.exists():
@@ -55,49 +79,97 @@ def preflight(recipe: dict, src_dir: Path) -> list[str]:
     return missing
 
 
+def _report(recipe: dict, start: float, end: float, landed: dict,
+            plan: list[dict], cues: list[dict]) -> None:
+    """--dry-run と本ビルドの両方で出す。**自動の行き過ぎを目で止めるため。**"""
+    print(f"  切り出し {start:.1f}s - {end:.1f}s（{end - start:.1f}s）")
+    if landed["start"] < recipe["short"]["start"]:
+        print(f"  巻き戻し {recipe['short']['start']:.1f} → {start:.1f}"
+              f"（-{recipe['short']['start'] - start:.1f}s）"
+              f"[{landed['kind']}] {landed['line'][:44]}")
+    print(f"  字幕 {len(plan)}枚")
+    for p in plan:
+        print(f"    {p['start']:6.2f}-{p['end']:6.2f}  {p['text']}")
+
+    stale = unused_fixes(cues, start, end, recipe.get("fixes"))
+    if stale:
+        print(f"  ! recipe.fixes のうち当たらなかったもの: {'/ '.join(stale)}")
+
+    risky = risky_lines(plan)
+    if risky:
+        # ASRは実測で「土橋さん→その悪さん」「焼き鳥3級→焼き鳥産」と崩れる。
+        # 令和の虎は金額が命なので、焼く前に必ず人の目に掛ける
+        print(f"  ! 数字を含む字幕が {len(risky)}行ある。ASRは金額と固有名詞を崩すので、"
+              "映像で裏取りすること")
+        for p in risky:
+            print(f"    {p['start']:6.2f}  {p['text']}")
+
+
+def video_filter(n_captions: int) -> str:
+    """映像を16:9のまま置き、下地と字幕を順に重ねるフィルタを組む。
+
+    **横にトリミングしない。** 元動画は制作側が画面下いっぱいに要約テロップを
+    焼き込んでいる。中央61%に詰めていたので「マイナスな発言が多い」が
+    「ナスな発言が多」に化けて画面中央に残っていた（実測）。
+    """
+    w, h = SHORT_SIZE
+    vy = int(h * SHORT_TOP)
+    vh = h - vy - int(h * SHORT_BOTTOM)
+    parts = [f"[0:v]scale={w}:{vh}:force_original_aspect_ratio=decrease,"
+             f"pad={w}:{vh}:(ow-iw)/2:(oh-ih)/2:color=black,fps={FPS},"
+             f"pad={w}:{h}:0:{vy}:color=black[v0]"]
+    parts.append("[v0][1:v]overlay=0:0[v1]")          # 黒帯とフック
+    return ";".join(parts), vh
+
+
 def build(recipe_path: Path, dry_run: bool = False) -> Path:
     recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
     src = source_dir(recipe["source_video_id"])
+    cues = load_cues(src)
 
-    missing = preflight(recipe, src)
+    missing = preflight(recipe, src, cues)
     if missing:
         for m in missing:
             print(f"! {m}")
         raise SystemExit("素材が足りないので中断する")
 
-    short = recipe["short"]
-    start, end = short["start"], short["end"]
+    start, end, landed = plan_span(recipe, cues)
+    plan = burn_plan(cues, start, end, fixes=recipe.get("fixes"))
     length = end - start
     out = WORK / f"{recipe['id']}-short"
 
+    print(f"[{'dry-run' if dry_run else 'build'}] {recipe['id']}-short")
+    _report(recipe, start, end, landed, plan, cues)
+    print(f"  フック: {recipe['short']['hook'][:44]}")
     if dry_run:
-        print(f"[dry-run] {recipe['id']}-short")
-        print(f"  切り出し {start:.1f}s - {end:.1f}s（{length:.1f}s）")
-        print(f"  フック: {short['hook'][:40]}")
         return out
 
     out.mkdir(parents=True, exist_ok=True)
-    frame = out / "frame.png"
-    render_short_frame(short.get("head"), short.get("quote")).save(frame)
+    caps = out / "captions"
+    caps.mkdir(exist_ok=True)
+    for f in caps.glob("*.png"):
+        f.unlink()
 
-    w, h = SHORT_SIZE
-    vy = int(h * SHORT_TOP)
-    vh = h - vy - int(h * SHORT_BOTTOM)
+    frame = out / "frame.png"
+    # **下帯は字幕に譲る。** レシピの quote（固定引用）は焼かない。
+    # 上帯の head が同じことを言っているうえ、固定の台詞は話者を取り違えさせる
+    render_short_frame(recipe["short"].get("head")).save(frame)
+
+    inputs = ["-i", str(src / "source.mp4"), "-i", str(frame)]
+    chain, _ = video_filter(len(plan))
+    for i, p in enumerate(plan):
+        png = caps / f"{i:03d}.png"
+        render_short_caption(p["text"]).save(png)
+        inputs += ["-i", str(png)]
+        chain += (f";[v{i + 1}][{i + 2}:v]overlay=0:0:"
+                  f"enable='between(t,{p['start']:.3f},{p['end']:.3f})'[v{i + 2}]")
+    last = f"[v{len(plan) + 1}]"
+
     video = out / "video.mp4"
-    # **縦にトリミングして顔を大きくする。** 16:9をそのまま幅に合わせると
-    # 映像が小さくなり、縦型として弱い（競合の上位はどれも大きく寄せている）。
-    # 上下の黒帯が元動画の告知と字幕を覆うので、二重にもならない
-    ar = w / vh
     subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{start}",
-         "-i", str(src / "source.mp4"), "-i", str(frame), "-t", f"{length}",
-         "-filter_complex",
-         # 元動画のテロップが映像領域に写り込むのは許容する。
-         # 先に落とすと寄りすぎて顔が切れるため（実ビルドで確認）
-         f"[0:v]crop='min(iw,ih*{ar:.4f})':'min(ih,iw/{ar:.4f})',"
-         f"scale={w}:{vh},fps={FPS},pad={w}:{h}:0:{vy}:color=black[bg];"
-         f"[bg][1:v]overlay=0:0[out]",
-         "-map", "[out]", "-map", "0:a",
+        ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{start}", *inputs,
+         "-t", f"{length}", "-filter_complex", chain,
+         "-map", last, "-map", "0:a",
          "-c:v", "libx264", "-preset", "medium", "-crf", "20",
          "-pix_fmt", "yuv420p",
          "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
@@ -113,6 +185,7 @@ def build(recipe_path: Path, dry_run: bool = False) -> Path:
          "-frames:v", "1", str(out / "thumb.png")], check=True, capture_output=True)
 
     (out / "description.txt").write_text(build_description(recipe), encoding="utf-8")
+    short = recipe["short"]
     (out / "meta.json").write_text(json.dumps({
         "id": f"{recipe['id']}-short",
         "title": (short.get("title") or short["hook"])[:100],
@@ -124,7 +197,8 @@ def build(recipe_path: Path, dry_run: bool = False) -> Path:
         "source_url": recipe["source_url"],
     }, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    print(f"✓ {video}  {actual:.1f}s  {w}x{h}")
+    w, h = SHORT_SIZE
+    print(f"✓ {video}  {actual:.1f}s  {w}x{h}  字幕{len(plan)}枚")
     return out
 
 

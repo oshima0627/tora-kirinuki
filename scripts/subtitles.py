@@ -84,8 +84,20 @@ def _split(text: str, max_chars: int) -> list[str]:
     return out
 
 
+def _fixed(text: str, fixes: dict | None) -> str:
+    """レシピの訂正表を当てる。**ASRは固有名詞を崩すが数字が無いと検出できない。**
+
+    実測で「阿久津さん→その悪さん」「焼き鳥3級→焼き鳥産」。risky_lines は
+    数字を手がかりにしているのでこれを拾えず、そのまま焼かれてしまう。
+    """
+    for wrong, right in (fixes or {}).items():
+        text = text.replace(wrong, right)
+    return text
+
+
 def burn_plan(cues: list[dict], start: float, end: float,
-              max_chars: int = BURN_MAX_CHARS) -> list[dict]:
+              max_chars: int = BURN_MAX_CHARS,
+              fixes: dict | None = None) -> list[dict]:
     """区間の字幕を [{"start", "end", "text"}] にする。時刻は start からの相対秒。
 
     キューの表示は次のキューが始まるまで。最後のキューは区間の終わりまで。
@@ -96,7 +108,8 @@ def burn_plan(cues: list[dict], start: float, end: float,
     # **音の注記を落としてから区間を決める。** ASRは長い発話の直後に「[鼻息]」の
     # ようなキューを差し込む。そこで打ち切ると、実測で107文字が0.29秒に詰め込まれ、
     # その後の12秒が無字幕になった
-    kept = [(c["t"], NOTE_RE.sub("", c["line"] or "").strip()) for c in cues]
+    kept = [(c["t"], _fixed(NOTE_RE.sub("", c["line"] or "").strip(), fixes))
+            for c in cues]
     # 1文字だけのキュー（ASRは「ほ」「お」を独立して吐く）は焼かない。
     # 0.5秒だけ1文字が出ても読めず、直前の字幕を途中で消してしまう
     kept = [(t, text) for t, text in kept if len(_core(text)) >= 2]
@@ -145,3 +158,14 @@ def _merge_flashes(plan: list[dict], min_show: float = MIN_SHOW) -> list[dict]:
 def risky_lines(plan: list[dict]) -> list[dict]:
     """数字・金額・割合を含む行を返す。ASRが崩している可能性が高い。"""
     return [p for p in plan if any(ch in RISKY for ch in p["text"])]
+
+
+def unused_fixes(cues: list[dict], start: float, end: float,
+                 fixes: dict | None) -> list[str]:
+    """区間の字幕に一度も当たらなかった訂正を返す。
+
+    レシピを他の回から引き写すと、当たらない訂正が残る。黙って通すと
+    「直したつもり」のまま焼かれるので、ビルド時に名指しする。
+    """
+    text = "".join(p["text"] for p in burn_plan(cues, start, end))
+    return [w for w in (fixes or {}) if w not in text]
