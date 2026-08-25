@@ -234,6 +234,20 @@ def set_privacy(service, video_id: str, privacy: str, publish_at: str | None = N
                             body={"id": video_id, "status": status}).execute()
 
 
+def retire(data: dict, recipe_id: str) -> dict:
+    """published.json のエントリを retired に退避する。
+
+    **同じレシピIDで上げ直すときに使う。** エントリを残したままだと
+    --schedule が既存の動画を予約し直すだけで、新しいビルドが上がらない。
+    かといって消すと旧動画の行方が分からなくなる（実測で published.json に
+    無い private動画が6本たまっていた）ので、retired に移して残す。
+    """
+    entry = data["videos"].pop(recipe_id, None)
+    if entry is not None:
+        data.setdefault("retired", []).append({"recipe_id": recipe_id, **entry})
+    return data
+
+
 def record(meta: dict, video_id: str, privacy: str, thumb_ok: bool,
            ch: dict | None, publish_at: str | None = None) -> None:
     PUBLISHED.parent.mkdir(parents=True, exist_ok=True)
@@ -302,6 +316,9 @@ def main() -> None:
     ap.add_argument("--schedule", metavar="ISO8601",
                     help="即時公開せず、指定時刻に自動公開する予約を入れる"
                          "（例: 2026-08-11T03:00:00Z。JSTなら+09:00を付ける）")
+    ap.add_argument("--unschedule", action="store_true",
+                    help="予約を解除して private に戻し、published.json から"
+                         "retired に移す（同じレシピを作り直して上げ直すとき）")
     ap.add_argument("--thumbnail-only", action="store_true",
                     help="アップロード済みの動画のサムネイルだけ差し替える")
     ap.add_argument("--retry-thumbnails", action="store_true",
@@ -322,6 +339,19 @@ def main() -> None:
     meta = json.loads((a.workdir / "meta.json").read_text(encoding="utf-8"))
     ch = assert_expected_channel(service, meta)
     print(f"- チャンネル: {ch['title']}（{ch['id']}）")
+
+    if a.unschedule:
+        data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
+        entry = data["videos"].get(meta["id"]) or die(
+            f"{meta['id']} は published.json にありません")
+        # publishAt を渡さない＝予約が外れる。動画は private のまま残る
+        set_privacy(service, entry["youtube_video_id"], "private")
+        retire(data, meta["id"])
+        PUBLISHED.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"✓ 予約を解除しました: {entry['url']}（private のまま残ります）")
+        print("  作り直したものを --schedule で上げ直してください")
+        return
 
     if a.thumbnail_only:
         data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
