@@ -11,3 +11,6 @@ work/
 __pycache__/
 *.pyc
 .venv/
+
+# ワークツリー（ローカル専用）
+.claude/worktrees/

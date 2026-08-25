@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "p=\"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start.py\"; [ -f \"$p\" ] || p=\"$(dirname \"$(git rev-parse --git-common-dir)\")/.claude/hooks/session_start.py\"; python \"$p\" || true",
+            "timeout": 20,
+            "statusMessage": "HANDOFF.md を読み込み中"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "p=\"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_check.py\"; [ -f \"$p\" ] || p=\"$(dirname \"$(git rev-parse --git-common-dir)\")/.claude/hooks/stop_check.py\"; python \"$p\" || true",
+            "timeout": 20,
+            "statusMessage": "引き継ぎとpushの漏れを確認中"
+          }
+        ]
+      }
+    ]
+  }
+}
