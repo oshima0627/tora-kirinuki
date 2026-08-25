@@ -1,88 +1,116 @@
-# 引き継ぎ（2026-08-24）
+# 引き継ぎ
+
+最終更新: 2026-08-25
 
 ## いま何をしているのか
 
-**視聴者コメントを受けてショートの切り出し方を作り直した。** 実装・テスト・
-未投稿4本のビルドまで終わっている。**まだ1本もアップロードしていない。**
+Studio の数字を測ってベースラインを記録した（[docs/2026-08-25-baseline.md](docs/2026-08-25-baseline.md)）。
+その流れで**未投稿ぶんの焼いた字幕を読んだら、ASRの崩れがそのまま入っていた**ので、
+訂正表を入れてショート4本を作り直した。
 
-```
-2026-08-19-akutsu-gyutan-short / nIulWMDR7dQ
-[2026-08-22T13:32:15Z] @Tkkrchu: 「切り抜き方が下手でどういう意味なのか全くわからない」
-```
-
-チャンネルに付いた唯一のコメント。公開済み26本を `commentThreads.list` で
-確認した（他は0件、`2026-08-20` の3本はコメント無効）。
-
-## 検証済みの事実
-
-- **投稿済み19本のうち18本が発話の途中から始まっていた**（`recipes/*.json` の
-  `short.start` を `work/<src>/subs.json` と突き合わせて計測。最大ズレ +18.4秒）
-- `akutsu-gyutan` は前提（「ちょっとある推理していいですか?」ほか）を10.6秒ぶん
-  切り落とし、結論の接続詞「で、なんでかって言うと」から始まっていた
-- 横クロップ（中央61%）で元動画のテロップが切れていた。フレームを抜いて確認、
-  「マイナスな発言が多い」が「ナスな発言が多」になっていた
-- `pytest` **161件すべて通る**（変更前は109件）
-- 未投稿4本＋`akutsu-gyutan` を実ビルドし、フレームを抜いて目視確認した。
-  元動画の名前カード（`林 尚弘(41) 令和の虎 二代目 主宰`）まで読める
-
-## 変えたもの
-
-| ファイル | 何を |
-| --- | --- |
-| `scripts/moments.py` | `rewind_to_topic_head()` … 開始点を文の頭まで最大15秒戻す |
-| `scripts/subtitles.py` | `burn_plan()` / `risky_lines()` / `unused_fixes()` … 時間同期字幕の割り付け |
-| `scripts/cards.py` | `render_short_caption()`、映像を16:9等倍（1080x608）に |
-| `scripts/recipe.py` | `validate_short(recipe, cues)` … 字幕の有無と巻き戻し後の尺で判定 |
-| `scripts/build_short.py` | 全面的に書き直し。`--dry-run` が焼く字幕を全部出す |
-| `recipes/2026-08-19-akutsu-gyutan.json` | `fixes`（ASR訂正表）を追加 |
-
-設計は [`docs/superpowers/specs/2026-08-24-short-comprehension-design.md`](docs/superpowers/specs/2026-08-24-short-comprehension-design.md)。
-
-## 未検証のもの
-
-- **実際に伸びるかどうかは分からない。** コメント1件への対処であり、
-  再生数への効果は測っていない。公開後に `report_stats.py` で見ること
-- 顔が小さくなることの是非。等倍にしたぶん縦型としての寄りは弱くなった
+**YouTube 側の操作は1つも通っていない。** 403 `quotaExceeded` で止まっている。
+リセットは太平洋時間0時＝**JST 16:00**（2026-08-25 13:29 時点で PT は 08-24 21:29 だと確認）。
 
 ## 次にやること
 
-### 1. 未投稿4本のアップロード（長尺4・ショート4）
+### 1. クォータが戻ったら（JST 16:00 以降）、予約2本を差し替える
 
-`akutsu-hantei` / `imamura-ai` / `komazawa-ginkou` / `yotsui-kakkoii`。
-ショートは新しい形でビルド済み。**長尺は 2026-08-20 のビルドのまま**（今回
-長尺は触っていない）。**長尺を先に上げること**（ショートの概要欄が長尺のURLを持つ）。
-
-```bash
-python scripts/upload_youtube.py work/<id>       --schedule "<日>T03:10:00Z"   # JST 12:10
-python scripts/upload_youtube.py work/<id>-short --schedule "<日>T03:00:00Z"   # JST 12:00
-```
-
-クォータは太平洋時間の0時（JST 16〜17時）に戻る。1日6本まで。
-
-### 2. サムネイルの再試行（積み残し）
-
-`RveQoV1zud4` ほか3件が 429（`uploadRateLimitExceeded`）で入っていない。
+`akutsu-hantei-short`（8/26 12:00 JST 公開）と `imamura-ai-short`（8/27）は
+**訂正前の字幕が焼かれた状態でアップロード済み**。作り直したものに差し替える。
 
 ```bash
-python scripts/upload_youtube.py --retry-thumbnails
+python scripts/upload_youtube.py work/2026-08-20-akutsu-hantei-short --unschedule
+python scripts/upload_youtube.py work/2026-08-20-imamura-ai-short   --unschedule
+python scripts/upload_youtube.py work/2026-08-20-akutsu-hantei-short --schedule "2026-08-26T03:00:00Z"
+python scripts/upload_youtube.py work/2026-08-20-imamura-ai-short   --schedule "2026-08-27T03:00:00Z"
 ```
 
-### 3. `state/published.json` が実態とずれている
+- 旧ID `Atsm_3CKLx8`（akutsu-hantei-short）/ `irfzXTmIqQQ`（imamura-ai-short）
+- `--unschedule` は予約を外して private のまま残し、`published.json` のエントリを
+  `retired` に移す。**消さない**（消すと旧動画の行方が分からなくなる）
+- **長尺2本は触らない。** 字幕を焼いていないので崩れは入っていない。8/26・8/27 の予約はそのまま
+- 約 3,400ユニット（update 50×2、insert 1,600×2、サムネ 50×2）
 
-予約投稿が公開に変わっても `privacy_status` が `private` のまま。
-`nIulWMDR7dQ` は実際には公開されている（コメントが付いている）。
+### 2. 余ったぶんで未投稿の2組を上げる
 
-## 触ってはいけないところ
+**長尺が先。** ショートの概要欄が長尺のURLを持つので、長尺が `published.json` に
+無いとショートは上がらない。
 
-- **投稿済み19本は作り直さない。** 映像を差し替える手段が無く、上げ直すと
-  動画IDが変わって再生数とコメントを失う
-- **長尺（15分）の切り出し方は今回変えていない。** ショートの効果を見てから
-- **`fixes` は必ず裏取りした語だけ入れる。** ASRの推測を焼くと誤情報になる
+```bash
+python scripts/upload_youtube.py work/2026-08-20-komazawa-ginkou       --schedule "2026-08-28T03:10:00Z"
+python scripts/upload_youtube.py work/2026-08-20-komazawa-ginkou-short --schedule "2026-08-28T03:00:00Z"
+python scripts/upload_youtube.py work/2026-08-20-yotsui-kakkoii        --schedule "2026-08-29T03:10:00Z"
+python scripts/upload_youtube.py work/2026-08-20-yotsui-kakkoii-short  --schedule "2026-08-29T03:00:00Z"
+```
 
-## 残っている課題
+**1日6本が上限。** 1と合わせるとちょうど埋まる。足りなければ `komazawa` を先に、
+`yotsui` を翌日へ回す。
 
-**元動画の要約テロップと自前のASR字幕が二重になることがある。**
-`komazawa-ginkou` の実ビルドで、元テロップ「トレーナーを育てる知見も持ってる」と
-自前の字幕「トレーナーを育てるっていうところの知持っておりま」が同時に出た。
-**元動画のほうが正確。** 焼き込みテロップは読めないと検出できないので、
-気づいたら `fixes` で直すか、区間をずらす。
+### 3. 8/29〜8/30 に効果を測る
+
+8/26公開分が、作り直したショート（字幕焼き込み）の初回。
+
+```bash
+python scripts/report_stats.py --retention
+```
+
+比較の相手は [ベースライン](docs/2026-08-25-baseline.md) §2 の旧方式4本。
+**見るのは再生数ではなく 25%地点の残存と高評価率。**
+再生数はショートフィードの配信量に支配されていて、作りの差が出ない。
+
+## 検証済みの事実
+
+- **08-20公開分でショートの配信が始まった。** 08-10〜08-18公開の9本は6〜15再生（合計88）、
+  08-20以降は707〜5,997再生。トラフィックは `SHORTS` が15,297再生で97%
+- **こちらの変更では説明できない。** 08-14公開分から既に insert予約（`1ea2ff2`）で、
+  それでも10〜15再生だった。ショートの尺も08-18と08-20で同じ66秒
+- **累計23,012再生に対して登録者2人。** 期間中の純増+1。高評価率 0.14〜0.23%
+- **長尺16本の合計再生は27**（最大6）。ショートが19,000再生を集めた期間中も0〜6のまま
+- **ショート4本を作り直した。** `akutsu-hantei` / `imamura-ai` / `komazawa-ginkou` /
+  `yotsui-kakkoii`。フレームを抜いて「低価格帯の居酒屋」「年商の高い社長」「駒澤さん」に
+  直っていることを目視確認した
+- `pytest` **166件すべて通る**（セッション開始時161件）
+- `published.json` は無傷。34件のまま、予約も旧IDのまま動いていない
+
+## 今回変えたもの
+
+| ファイル | 何を |
+| --- | --- |
+| `docs/2026-08-25-baseline.md` | 新規。実測ベースライン |
+| `scripts/report_stats.py` | 境目を `SHORTS_PICKUP = "2026-08-20"` に。`--retention` を追加 |
+| `scripts/subtitles.py` | `unused_fixes` … キューをまたぐ訂正の見逃しを直した |
+| `scripts/upload_youtube.py` | `retire()` と `--unschedule` を追加 |
+| `recipes/2026-08-20-{akutsu-hantei,imamura-ai,komazawa-ginkou,yotsui-kakkoii}.json` | `fixes`（ASR訂正表） |
+| `tests/test_burn.py` / `tests/test_publish_state.py` | +5件 |
+
+コミット `9a22d01` / `6cfdc9f` / `ebda376`。
+
+## 未検証のもの
+
+- **作り直したショートが伸びるかは分からない。** 8/26公開分が出るまで測れない
+- 08-20の断絶の原因。相関しか見ていない。インプレッション数は API に無く Studio の画面でしか見られない
+
+## 触ってはいけないところ・保留中の判断
+
+**音を聞かないと確定しないASRの崩れが残っている。** 裏取りできないものは
+`recipe.fixes` に入れていない。**推測で足さないこと。**
+
+| レシピ | 残っている崩れ |
+| --- | --- |
+| `akutsu-hantei` | 「めっちゃおろいや」「え、ごめんなさい。しょが」 |
+| `imamura-ai` | 「ただ1点研したサービス」「今姉社長が」「いやいやいですか?」 |
+| `komazawa-ginkou` | 「価確」（2箇所）「知持っております」「私もせていただきます」「津田さん」「紫さん」 |
+| `yotsui-kakkoii` | 「リアルバリオー」「会社員さんみたいに」 |
+
+`python scripts/build_short.py recipes/<id>.json --dry-run` で焼く字幕が全部出る。
+`fixes` に足すと、当たらなかったものを `! recipe.fixes のうち当たらなかったもの` が名指しする。
+
+**まだ相談していない判断:**
+
+- **長尺が完全に死んでいる。** 作り方ではなく導線の問題。ショート概要欄の
+  「フルで見る」からの流入は `EXT_URL` 5再生
+- **23,012再生で登録者2人。** 転換がまったく起きていない
+- ショートの概要欄が長尺のコピー。66秒の動画に「…15分です」と書いてある
+  （`recipe["description"]` を長尺とショートが共用）
+- `published.json` に無い private動画が6本（すべて 2026-08-10・0再生）
+  `ZpsydtIqHm4` `wjoh-MPER6M` `-whIQ-8kiaw` `xcrKdusnOz0` `5LbLIA1YTw8` `cjeTzX5kFIw`
