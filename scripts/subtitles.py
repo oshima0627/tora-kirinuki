@@ -174,6 +174,13 @@ def unused_fixes(cues: list[dict], start: float, end: float,
 
     レシピを他の回から引き写すと、当たらない訂正が残る。黙って通すと
     「直したつもり」のまま焼かれるので、ビルド時に名指しする。
+
+    **焼いた字幕を連結して探してはいけない。** 訂正は `_fixed` がキュー単位で
+    当てている。ASRは「年少の高い」「社長なんですよ。」のように語の途中で
+    切るので、またぐ訂正は一度も当たらない。連結すると繋がって見えてしまい、
+    当たったと誤判定していた（yotsui-kakkoii で実測）。
+    1つずつ入れて焼き直し、plan が動いたかどうかで判定する。
     """
-    text = "".join(p["text"] for p in burn_plan(cues, start, end))
-    return [w for w in (fixes or {}) if w not in text]
+    base = [p["text"] for p in burn_plan(cues, start, end)]
+    return [w for w, r in (fixes or {}).items()
+            if [p["text"] for p in burn_plan(cues, start, end, fixes={w: r})] == base]
