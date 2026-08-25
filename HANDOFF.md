@@ -82,8 +82,24 @@ python scripts/report_stats.py --retention
 | `scripts/upload_youtube.py` | `retire()` と `--unschedule` を追加 |
 | `recipes/2026-08-20-{akutsu-hantei,imamura-ai,komazawa-ginkou,yotsui-kakkoii}.json` | `fixes`（ASR訂正表） |
 | `tests/test_burn.py` / `tests/test_publish_state.py` | +5件 |
+| `.claude/settings.json` / `.claude/hooks/` | 新規。引き継ぎとpushの漏れを止めるフック |
+| `tests/test_hooks.py` | +6件 |
 
-コミット `9a22d01` / `6cfdc9f` / `ebda376`。
+コミット `9a22d01` / `6cfdc9f` / `ebda376` / `e5ebde7` / `93f0665` / `f43ff5e`。
+
+### 引き継ぎはフックで強制されるようになった
+
+**指示書に書いたから読む・書く、とは考えない。** CLAUDE.md に「毎セッション必ず」と
+書いてあったのに、このセッションで読み落とした（ワークツリーのブランチが初期コミットの
+ままで CLAUDE.md も HANDOFF.md も無かった）。
+
+| いつ | 何が起きる |
+| --- | --- |
+| `SessionStart` | このファイルの中身が context に流し込まれる |
+| `Stop` | 未pushのコミットがあるのにどれも `HANDOFF.md` を触っていなければ止まる |
+
+止まるのは1セッションに1回だけ。push すれば `ahead=0` になって自然に消える。
+中身は `.claude/hooks/`、判定のテストは `tests/test_hooks.py`。
 
 ## 未検証のもの
 
