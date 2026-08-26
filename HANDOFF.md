@@ -64,6 +64,12 @@
   | yotsui-kakkoii-short | `Yl3wV9uQnxU` | 08-29T03:00Z | 1:04 |
 
   4本とも private + サムネ設定済み。**ショート3本すべて、概要欄に対応する長尺のURLが入っていることを確認した**
+- **`komazawa-ginkou` が二重にアップロードされ、`yHxbK4Y05zI` を止めた。**
+  同じ 08-28T03:10Z 予約が2件並んでいた。ショート `ji7bvZ1syLA` の概要欄が
+  `NSAi-BfomiU` を指しているので、そちらを残して `yHxbK4Y05zI` の予約を外した
+  （private のまま残置、`retired` に記録）。`videos.list` で `publishAt=None` を確認済み
+- `state/published.json` がマージで壊れた（JSONとして読めなくなった）ので
+  `git checkout 221fa2d -- state/published.json` で復旧。`pytest` **172 passed** で再確認
 - 今日（PT 08-25 = JST 08-25 16:00〜08-26 16:00）の消費は約 **8,300ユニット**
   （insert 1,600×5 + サムネ 50×5 + update 50 + 読み取り）。**残りは約1,700。追加のアップロードは1本が限度**
 
@@ -137,6 +143,12 @@ python scripts/report_stats.py --retention
 ZpsydtIqHm4  cjeTzX5kFIw  5LbLIA1YTw8  xcrKdusnOz0  wjoh-MPER6M  -whIQ-8kiaw  (08-10)
 op5uGCFQJ5s  FureBeVFerE                                                       (08-13)
 ```
+
+**`upload_youtube.py` はカレントディレクトリで台帳の場所が変わる。**
+`ROOT = Path(__file__).parents[1]` なので、ワークツリーから実行すると
+ワークツリー側の `state/published.json` を見る。本体側と食い違ったまま両方から
+上げると、**同じ動画が二重にアップロードされる**（今回 `yHxbK4Y05zI` で起きた）。
+**実行は本体（`C:/Users/oshim/Documents/projects/tora-kirinuki`）からに統一する。**
 
 **引き継ぎはフックで強制されている。** `SessionStart` でこのファイルが context に流し込まれ、
 `Stop` で未pushかつ `HANDOFF.md` 未更新なら止まる。中身は `.claude/hooks/`、
