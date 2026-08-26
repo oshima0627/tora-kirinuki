@@ -23,7 +23,7 @@
 |---|---|
 | `scripts/audit_account.py` | 新規。アカウントとチャンネルの状態を出す。書き込みはしない |
 | `docs/2026-08-26-account-audit.md` | 新規。今回の測定結果すべて |
-| `state/published.json` | `imamura-ai-short` を差し替え。旧 `irfzXTmIqQQ` は `retired` へ |
+| `state/published.json` | 34→38件。`imamura-ai-short` を差し替え（旧 `irfzXTmIqQQ` は `retired`）、未投稿の2組を追加 |
 
 ワークツリーのブランチが初期コミットのままだったので `git merge main` で追いつかせた。
 
@@ -54,6 +54,18 @@
 - 差し替え後に `videos.list` で確認: 新 `U9FMPUTeZ-Y` は private + publishAt 08-27T03:00Z、
   旧 `irfzXTmIqQQ` は private + publishAt なし、長尺 `aPof751FH1U` は 08-27T03:10Z のまま無傷
 - `published.json` は 34件のまま。`retired` に `irfzXTmIqQQ` が1件入った
+- 未投稿の2組を予約付きで上げた。`videos.list` で確認した状態:
+
+  | 動画 | ID | 公開予定 | 尺 |
+  |---|---|---|---|
+  | komazawa-ginkou（長尺） | `NSAi-BfomiU` | 08-28T03:10Z | 15:04 |
+  | komazawa-ginkou-short | `ji7bvZ1syLA` | 08-28T03:00Z | 1:03 |
+  | yotsui-kakkoii（長尺） | `B9iCtgqAZaY` | 08-29T03:10Z | 14:54 |
+  | yotsui-kakkoii-short | `Yl3wV9uQnxU` | 08-29T03:00Z | 1:04 |
+
+  4本とも private + サムネ設定済み。**ショート3本すべて、概要欄に対応する長尺のURLが入っていることを確認した**
+- 今日（PT 08-25 = JST 08-25 16:00〜08-26 16:00）の消費は約 **8,300ユニット**
+  （insert 1,600×5 + サムネ 50×5 + update 50 + 読み取り）。**残りは約1,700。追加のアップロードは1本が限度**
 
 ### 8/26公開分は訂正前のまま出た。8/27ぶんは差し替えた
 
@@ -65,18 +77,21 @@
 
 ## 次にやること
 
-### 1. 未投稿の2組を上げる（クォータは JST 16:00 に PT日が変わる）
+### 1. 8/27〜8/29 の公開を見届けて、効果を測る
 
-**長尺が先**（ショートの概要欄が長尺のURLを持つため）。
+予約は 8/29 まで埋まっている（上表）。**新しく作る素材が無い状態なので、
+8/30以降の枠は空**。次の素材を作るか、間隔を空けるかを決める必要がある。
+
+8/27公開の `U9FMPUTeZ-Y` が、**訂正版ショートの初回**。
 
 ```bash
-python scripts/upload_youtube.py work/2026-08-20-komazawa-ginkou       --schedule "2026-08-28T03:10:00Z"
-python scripts/upload_youtube.py work/2026-08-20-komazawa-ginkou-short --schedule "2026-08-28T03:00:00Z"
-python scripts/upload_youtube.py work/2026-08-20-yotsui-kakkoii        --schedule "2026-08-29T03:10:00Z"
-python scripts/upload_youtube.py work/2026-08-20-yotsui-kakkoii-short  --schedule "2026-08-29T03:00:00Z"
+python scripts/report_stats.py --retention
 ```
 
-**1日6本が上限**（10,000ユニット ÷ 1,600）。1と合わせるとちょうど埋まる。
+比べる相手は 08-20以降の同じ配信条件の回（`nIulWMDR7dQ` `Pi1SplRFskQ` `19nBjuV4evc`
+`BHhxA4jk7VU` `Db824zUyJ3c` `RveQoV1zud4`）。
+**見るのは再生数ではなく 25%地点の残存と高評価率。** 再生数はショートフィードの
+配信量に支配されていて、作りの差が出ない。
 
 ### 2. 測っていない穴を2つ埋める
 
