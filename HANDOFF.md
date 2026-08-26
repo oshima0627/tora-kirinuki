@@ -32,9 +32,9 @@
 - `python -m pytest -q` → **172 passed**（前回161→166→172。今回テストは足していない）
 - `python scripts/audit_account.py` の出力:
   - チャンネル public / isLinked true / longUploadsStatus allowed / 登録者3
-  - **42本アップロード済み。うち8本が `published.json` に無い**
+  - **調査時点（アップロード前）で42本。うち8本が `published.json` に無い**
     （前回の引き継ぎの「6本」は誤り。`op5uGCFQJ5s` `FureBeVFerE` が漏れていた）
-  - 42本すべて `madeForKids: false`、地域制限なし、埋め込み可、`uploadStatus: processed`
+  - その42本すべて `madeForKids: false`、地域制限なし、埋め込み可、`uploadStatus: processed`
   - 長尺の再生合計 **26**、ショートの再生合計 **26,776**
 - Studio の画面で確認:
   - **著作権の申し立て 0件**、削除リクエスト 0件、警告なし
@@ -53,7 +53,7 @@
   `✓ https://www.youtube.com/watch?v=U9FMPUTeZ-Y (private)` / `2026-08-27T03:00:00Z に自動公開されます`
 - 差し替え後に `videos.list` で確認: 新 `U9FMPUTeZ-Y` は private + publishAt 08-27T03:00Z、
   旧 `irfzXTmIqQQ` は private + publishAt なし、長尺 `aPof751FH1U` は 08-27T03:10Z のまま無傷
-- `published.json` は 34件のまま。`retired` に `irfzXTmIqQQ` が1件入った
+- 差し替え直後の `published.json` は 34件のまま、`retired` に `irfzXTmIqQQ` が1件
 - 未投稿の2組を予約付きで上げた。`videos.list` で確認した状態:
 
   | 動画 | ID | 公開予定 | 尺 |
@@ -70,8 +70,19 @@
   （private のまま残置、`retired` に記録）。`videos.list` で `publishAt=None` を確認済み
 - `state/published.json` がマージで壊れた（JSONとして読めなくなった）ので
   `git checkout 221fa2d -- state/published.json` で復旧。`pytest` **172 passed** で再確認
-- 今日（PT 08-25 = JST 08-25 16:00〜08-26 16:00）の消費は約 **8,300ユニット**
-  （insert 1,600×5 + サムネ 50×5 + update 50 + 読み取り）。**残りは約1,700。追加のアップロードは1本が限度**
+- **最終状態**（`playlistItems` + `videos.list` で全数確認）:
+  チャンネル上 **48本** / 予約中 **6本**。予約中で台帳に無いものは **なし**
+
+  ```
+  2026-08-27T03:00Z  U9FMPUTeZ-Y  1:08   imamura-ai-short（訂正版）
+  2026-08-27T03:10Z  aPof751FH1U  15:02  imamura-ai
+  2026-08-28T03:00Z  ji7bvZ1syLA  1:03   komazawa-ginkou-short
+  2026-08-28T03:10Z  NSAi-BfomiU  15:04  komazawa-ginkou
+  2026-08-29T03:00Z  Yl3wV9uQnxU  1:04   yotsui-kakkoii-short
+  2026-08-29T03:10Z  B9iCtgqAZaY  14:54  yotsui-kakkoii
+  ```
+
+  `published.json` は **videos 38件 / retired 2件**（`irfzXTmIqQQ` `yHxbK4Y05zI`）
 
 ### 8/26公開分は訂正前のまま出た。8/27ぶんは差し替えた
 
@@ -166,3 +177,7 @@ op5uGCFQJ5s  FureBeVFerE                                                       (
   [ベースライン](docs/2026-08-25-baseline.md) §2 ではなく、08-20以降の同じ配信条件の回。
   **見るのは再生数ではなく 25%地点の残存と高評価率**
 - 「視聴者の種類（新規/リピート）」は Analytics API が 500 を返して取れない
+- **今日のクォータ消費は測っていない。** 積み上げの概算で約8,300ユニット
+  （insert 1,600×5 + サムネ 50×5 + update 50×2 + 読み取り）。**残り約1,700のはずだが未確認。**
+  API は使用量を返さないので、確かめるなら Google Cloud コンソールの
+  「YouTube Data API v3 > 割り当て」を見る。PT日が変わるのは **JST 16:00**
