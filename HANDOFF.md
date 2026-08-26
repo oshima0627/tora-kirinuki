@@ -1,40 +1,79 @@
 # 引き継ぎ
 
-最終更新: 2026-08-25
+最終更新: 2026-08-26
 
 ## いま何をしているのか
 
-Studio の数字を測ってベースラインを記録した（[docs/2026-08-25-baseline.md](docs/2026-08-25-baseline.md)）。
-その流れで**未投稿ぶんの焼いた字幕を読んだら、ASRの崩れがそのまま入っていた**ので、
-訂正表を入れてショート4本を作り直した。
+**アカウントを調査した。結論: アカウント側は無傷で、原因は設定ではない。**
+測った内容はすべて [docs/2026-08-26-account-audit.md](docs/2026-08-26-account-audit.md)。
 
-**YouTube 側の操作は1つも通っていない。** 403 `quotaExceeded` で止まっている。
-リセットは太平洋時間0時＝**JST 16:00**（2026-08-25 13:29 時点で PT は 08-24 21:29 だと確認）。
+前回（08-25）は「長尺が完全に死んでいる」「23,012再生で登録者2人」を未解決のまま
+置いていた。その2つに数字がついた。
+
+- **長尺はクリックされていないのではなく、表示されていない。**
+  インプレッション 2,387 / CTR 3.1% / おすすめ由来 2.6% / ブラウジング機能 0.0%。
+  CTR は正常域。サムネイルとタイトルを直しても母数が動かない
+- **ショート 2.6万再生からの登録は 0人。** 28日で増えた1人は25再生の長尺から来ている
+- **長尺への導線が物理的に無い。** カードのインプレッション0、終了画面0、
+  概要欄リンク経由は期間全体で5再生
+
+## 今回やったこと
+
+| ファイル | 何を |
+|---|---|
+| `scripts/audit_account.py` | 新規。アカウントとチャンネルの状態を出す。書き込みはしない |
+| `docs/2026-08-26-account-audit.md` | 新規。今回の測定結果すべて |
+
+ワークツリーのブランチが初期コミットのままだったので `git merge main` で追いつかせた。
+
+## 検証済みの事実（実際に画面に出したもの）
+
+- `python -m pytest -q` → **172 passed**（前回161→166→172。今回テストは足していない）
+- `python scripts/audit_account.py` の出力:
+  - チャンネル public / isLinked true / longUploadsStatus allowed / 登録者3
+  - **42本アップロード済み。うち8本が `published.json` に無い**
+    （前回の引き継ぎの「6本」は誤り。`op5uGCFQJ5s` `FureBeVFerE` が漏れていた）
+  - 42本すべて `madeForKids: false`、地域制限なし、埋め込み可、`uploadStatus: processed`
+  - 長尺の再生合計 **26**、ショートの再生合計 **26,776**
+- Studio の画面で確認:
+  - **著作権の申し立て 0件**、削除リクエスト 0件、警告なし
+  - 長尺の漏斗: インプレッション 2,387 / おすすめ 2.6% / CTR 3.1% / 視聴73 / 平均視聴時間 1:18
+  - ショート: 視聴2.6万 / エンゲージビュー1.5万(57.7%) / 高評価48 / **登録者 —(0)**
+  - 収益化: 有効な総再生時間 **0時間**/3,000、有効ショート視聴 2,994/300万（08/20時点）
+- Analytics API:
+  - 流入 `SHORTS` 20,712(97%) / `YT_SEARCH` 317 / `YT_CHANNEL` 78 / `EXT_URL` 5
+  - 長尺6本の期間中の流入は**合計9再生**。おすすめ由来ゼロ
+  - 日本100% / モバイル89% / 男性25〜54歳80%。**狙った層に届いている**
+  - 共有 0件、`cardImpressions` 0
+  - ショート残存(`Pi1SplRFskQ`): 25% 0.810 / 50% 0.641 / 75% 0.554 / 100% 0.373
+- コメント全3件。うち1件が「切り抜き方が下手でどういう意味なのか全くわからない」
+
+### 8/26公開分は訂正前のまま出た
+
+`Atsm_3CKLx8`（akutsu-hantei-short）は **2026-08-26T03:00:28Z = 12:00 JST に公開済み**。
+前回の引き継ぎにあった差し替えは間に合っていない。焼き込み字幕は訂正前。
+
+`irfzXTmIqQQ`（imamura-ai-short / 8/27 12:00 JST）は**まだ private。間に合う。**
 
 ## 次にやること
 
-### 1. クォータが戻ったら（JST 16:00 以降）、予約2本を差し替える
+### 1. 8/27ぶんを差し替える（クォータは JST 16:00 に PT日が変わる）
 
-`akutsu-hantei-short`（8/26 12:00 JST 公開）と `imamura-ai-short`（8/27）は
-**訂正前の字幕が焼かれた状態でアップロード済み**。作り直したものに差し替える。
+いま（08-26 12:00 JST）API は通っている。**16:00 を過ぎるとまた別の日の枠になる。**
 
 ```bash
-python scripts/upload_youtube.py work/2026-08-20-akutsu-hantei-short --unschedule
-python scripts/upload_youtube.py work/2026-08-20-imamura-ai-short   --unschedule
-python scripts/upload_youtube.py work/2026-08-20-akutsu-hantei-short --schedule "2026-08-26T03:00:00Z"
-python scripts/upload_youtube.py work/2026-08-20-imamura-ai-short   --schedule "2026-08-27T03:00:00Z"
+python scripts/upload_youtube.py work/2026-08-20-imamura-ai-short --unschedule
+python scripts/upload_youtube.py work/2026-08-20-imamura-ai-short --schedule "2026-08-27T03:00:00Z"
 ```
 
-- 旧ID `Atsm_3CKLx8`（akutsu-hantei-short）/ `irfzXTmIqQQ`（imamura-ai-short）
-- `--unschedule` は予約を外して private のまま残し、`published.json` のエントリを
-  `retired` に移す。**消さない**（消すと旧動画の行方が分からなくなる）
-- **長尺2本は触らない。** 字幕を焼いていないので崩れは入っていない。8/26・8/27 の予約はそのまま
-- 約 3,400ユニット（update 50×2、insert 1,600×2、サムネ 50×2）
+旧ID `irfzXTmIqQQ`。長尺 `aPof751FH1U` は字幕を焼いていないので触らない。約1,700ユニット。
 
-### 2. 余ったぶんで未投稿の2組を上げる
+`Atsm_3CKLx8` は公開済み。差し替えるなら**公開済み動画の取り下げ**になるので、
+やるかどうかは相談してから。
 
-**長尺が先。** ショートの概要欄が長尺のURLを持つので、長尺が `published.json` に
-無いとショートは上がらない。
+### 2. 未投稿の2組を上げる
+
+**長尺が先**（ショートの概要欄が長尺のURLを持つため）。
 
 ```bash
 python scripts/upload_youtube.py work/2026-08-20-komazawa-ginkou       --schedule "2026-08-28T03:10:00Z"
@@ -43,73 +82,35 @@ python scripts/upload_youtube.py work/2026-08-20-yotsui-kakkoii        --schedul
 python scripts/upload_youtube.py work/2026-08-20-yotsui-kakkoii-short  --schedule "2026-08-29T03:00:00Z"
 ```
 
-**1日6本が上限。** 1と合わせるとちょうど埋まる。足りなければ `komazawa` を先に、
-`yotsui` を翌日へ回す。
+**1日6本が上限**（10,000ユニット ÷ 1,600）。1と合わせるとちょうど埋まる。
 
-### 3. 8/29〜8/30 に効果を測る
+### 3. 測っていない穴を2つ埋める
 
-8/26公開分が、作り直したショート（字幕焼き込み）の初回。
+どちらも安く、次の判断に直接効く。
 
 ```bash
+# 長尺がどこで切れているか（1:18 の内訳）。--retention はショート用なので長尺は未対応
 python scripts/report_stats.py --retention
 ```
 
-比較の相手は [ベースライン](docs/2026-08-25-baseline.md) §2 の旧方式4本。
-**見るのは再生数ではなく 25%地点の残存と高評価率。**
-再生数はショートフィードの配信量に支配されていて、作りの差が出ない。
+- **長尺の残存カーブ**を `elapsedVideoTimeRatio` で引く。平均視聴時間 1:18 が
+  「冒頭で切れている」のか「途中まで見て抜ける」のかで打ち手が変わる
+- **カードと終了画面**を1本に入れて、`cardImpressions` が0から動くかを見る。
+  いま0なのは効果が無いからではなく、**置いていないから**
 
-## 検証済みの事実
+### 4. 相談したいこと（手を動かす前に）
 
-- **08-20公開分でショートの配信が始まった。** 08-10〜08-18公開の9本は6〜15再生（合計88）、
-  08-20以降は707〜5,997再生。トラフィックは `SHORTS` が15,297再生で97%
-- **こちらの変更では説明できない。** 08-14公開分から既に insert予約（`1ea2ff2`）で、
-  それでも10〜15再生だった。ショートの尺も08-18と08-20で同じ66秒
-- **累計23,012再生に対して登録者2人。** 期間中の純増+1。高評価率 0.14〜0.23%
-- **長尺16本の合計再生は27**（最大6）。ショートが19,000再生を集めた期間中も0〜6のまま
-- **ショート4本を作り直した。** `akutsu-hantei` / `imamura-ai` / `komazawa-ginkou` /
-  `yotsui-kakkoii`。フレームを抜いて「低価格帯の居酒屋」「年商の高い社長」「駒澤さん」に
-  直っていることを目視確認した
-- `pytest` **166件すべて通る**（セッション開始時161件）
-- `published.json` は無傷。34件のまま、予約も旧IDのまま動いていない
+数字が出たので、前回「まだ相談していない判断」と書いた3つは形が変わった。
 
-## 今回変えたもの
-
-| ファイル | 何を |
-| --- | --- |
-| `docs/2026-08-25-baseline.md` | 新規。実測ベースライン |
-| `scripts/report_stats.py` | 境目を `SHORTS_PICKUP = "2026-08-20"` に。`--retention` を追加 |
-| `scripts/subtitles.py` | `unused_fixes` … キューをまたぐ訂正の見逃しを直した |
-| `scripts/upload_youtube.py` | `retire()` と `--unschedule` を追加 |
-| `recipes/2026-08-20-{akutsu-hantei,imamura-ai,komazawa-ginkou,yotsui-kakkoii}.json` | `fixes`（ASR訂正表） |
-| `tests/test_burn.py` / `tests/test_publish_state.py` | +5件 |
-| `.claude/settings.json` / `.claude/hooks/` | 新規。引き継ぎとpushの漏れを止めるフック |
-| `tests/test_hooks.py` | +6件 |
-
-コミット `9a22d01` / `6cfdc9f` / `ebda376` / `e5ebde7` / `93f0665` / `f43ff5e`。
-
-### 引き継ぎはフックで強制されるようになった
-
-**指示書に書いたから読む・書く、とは考えない。** CLAUDE.md に「毎セッション必ず」と
-書いてあったのに、このセッションで読み落とした（ワークツリーのブランチが初期コミットの
-ままで CLAUDE.md も HANDOFF.md も無かった）。
-
-| いつ | 何が起きる |
-| --- | --- |
-| `SessionStart` | このファイルの中身が context に流し込まれる |
-| `Stop` | 未pushのコミットがあるのにどれも `HANDOFF.md` を触っていなければ止まる |
-
-止まるのは1セッションに1回だけ。push すれば `ahead=0` になって自然に消える。
-中身は `.claude/hooks/`、判定のテストは `tests/test_hooks.py`。
-
-## 未検証のもの
-
-- **作り直したショートが伸びるかは分からない。** 8/26公開分が出るまで測れない
-- 08-20の断絶の原因。相関しか見ていない。インプレッション数は API に無く Studio の画面でしか見られない
+- **長尺15本は、いまの作りのままでは露出が増えない。**
+  平均視聴率8.6%を上げるか、長尺をやめるか。作り直しても表示2,387の母数は動かない
+- **ショートは届いているが1人も登録に変わっていない。** 2.6万再生・エンゲージ57.7%で登録0。
+  チャンネル名も出口も、いまのショートには入っていない
+- 概要欄がショートと長尺で共用（`recipe["description"]`）。66秒の動画に「…15分です」と書いてある
 
 ## 触ってはいけないところ・保留中の判断
 
-**音を聞かないと確定しないASRの崩れが残っている。** 裏取りできないものは
-`recipe.fixes` に入れていない。**推測で足さないこと。**
+**音を聞かないと確定しないASRの崩れが残っている。推測で `recipe.fixes` に足さないこと。**
 
 | レシピ | 残っている崩れ |
 | --- | --- |
@@ -119,14 +120,25 @@ python scripts/report_stats.py --retention
 | `yotsui-kakkoii` | 「リアルバリオー」「会社員さんみたいに」 |
 
 `python scripts/build_short.py recipes/<id>.json --dry-run` で焼く字幕が全部出る。
-`fixes` に足すと、当たらなかったものを `! recipe.fixes のうち当たらなかったもの` が名指しする。
 
-**まだ相談していない判断:**
+**`published.json` に無い private 動画が8本ある。**（6本ではない）
+台帳に無いので差し替えも削除も手作業になる。すべて0再生。
 
-- **長尺が完全に死んでいる。** 作り方ではなく導線の問題。ショート概要欄の
-  「フルで見る」からの流入は `EXT_URL` 5再生
-- **23,012再生で登録者2人。** 転換がまったく起きていない
-- ショートの概要欄が長尺のコピー。66秒の動画に「…15分です」と書いてある
-  （`recipe["description"]` を長尺とショートが共用）
-- `published.json` に無い private動画が6本（すべて 2026-08-10・0再生）
-  `ZpsydtIqHm4` `wjoh-MPER6M` `-whIQ-8kiaw` `xcrKdusnOz0` `5LbLIA1YTw8` `cjeTzX5kFIw`
+```
+ZpsydtIqHm4  cjeTzX5kFIw  5LbLIA1YTw8  xcrKdusnOz0  wjoh-MPER6M  -whIQ-8kiaw  (08-10)
+op5uGCFQJ5s  FureBeVFerE                                                       (08-13)
+```
+
+**引き継ぎはフックで強制されている。** `SessionStart` でこのファイルが context に流し込まれ、
+`Stop` で未pushかつ `HANDOFF.md` 未更新なら止まる。中身は `.claude/hooks/`、
+判定のテストは `tests/test_hooks.py`。
+
+## 未検証のもの
+
+- **08-20 の配信断絶の原因は不明のまま。** ファイル仕様を前後で比べたが、
+  `08-17` `08-18` `08-20` はすべて mov / 1080x1920 / 30fps / h264 / aac 2ch で同一。
+  タグもタイトル形式も尺も同じ。こちら側の変更では説明できない
+- 全動画に `suggestions.processingHints: ["nonStreamableMov"]`（faststart 未適用のMOV）。
+  `processingStatus` は `succeeded`。**実害があるかは確かめていない**
+- 作り直したショートが伸びるかは、まだ1本も公開されていないので分からない
+- 「視聴者の種類（新規/リピート）」は Analytics API が 500 を返して取れない
