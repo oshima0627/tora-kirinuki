@@ -23,6 +23,7 @@
 |---|---|
 | `scripts/audit_account.py` | 新規。アカウントとチャンネルの状態を出す。書き込みはしない |
 | `docs/2026-08-26-account-audit.md` | 新規。今回の測定結果すべて |
+| `state/published.json` | `imamura-ai-short` を差し替え。旧 `irfzXTmIqQQ` は `retired` へ |
 
 ワークツリーのブランチが初期コミットのままだったので `git merge main` で追いつかせた。
 
@@ -47,31 +48,24 @@
   - 共有 0件、`cardImpressions` 0
   - ショート残存(`Pi1SplRFskQ`): 25% 0.810 / 50% 0.641 / 75% 0.554 / 100% 0.373
 - コメント全3件。うち1件が「切り抜き方が下手でどういう意味なのか全くわからない」
+- `upload_youtube.py --unschedule` → `✓ 予約を解除しました: irfzXTmIqQQ（private のまま残ります）`
+- `upload_youtube.py --schedule "2026-08-27T03:00:00Z"` →
+  `✓ https://www.youtube.com/watch?v=U9FMPUTeZ-Y (private)` / `2026-08-27T03:00:00Z に自動公開されます`
+- 差し替え後に `videos.list` で確認: 新 `U9FMPUTeZ-Y` は private + publishAt 08-27T03:00Z、
+  旧 `irfzXTmIqQQ` は private + publishAt なし、長尺 `aPof751FH1U` は 08-27T03:10Z のまま無傷
+- `published.json` は 34件のまま。`retired` に `irfzXTmIqQQ` が1件入った
 
-### 8/26公開分は訂正前のまま出た
+### 8/26公開分は訂正前のまま出た。8/27ぶんは差し替えた
 
 `Atsm_3CKLx8`（akutsu-hantei-short）は **2026-08-26T03:00:28Z = 12:00 JST に公開済み**。
-前回の引き継ぎにあった差し替えは間に合っていない。焼き込み字幕は訂正前。
+前回の引き継ぎにあった差し替えは間に合わなかった。**焼き込み字幕は訂正前のまま公開されている。**
+差し替えるなら公開済み動画の取り下げになるので、やるかどうかは相談してから。
 
-`irfzXTmIqQQ`（imamura-ai-short / 8/27 12:00 JST）は**まだ private。間に合う。**
+`irfzXTmIqQQ`（imamura-ai-short / 8/27）は **13:05 JST に差し替え済み**（実行ログは §検証済み）。
 
 ## 次にやること
 
-### 1. 8/27ぶんを差し替える（クォータは JST 16:00 に PT日が変わる）
-
-いま（08-26 12:00 JST）API は通っている。**16:00 を過ぎるとまた別の日の枠になる。**
-
-```bash
-python scripts/upload_youtube.py work/2026-08-20-imamura-ai-short --unschedule
-python scripts/upload_youtube.py work/2026-08-20-imamura-ai-short --schedule "2026-08-27T03:00:00Z"
-```
-
-旧ID `irfzXTmIqQQ`。長尺 `aPof751FH1U` は字幕を焼いていないので触らない。約1,700ユニット。
-
-`Atsm_3CKLx8` は公開済み。差し替えるなら**公開済み動画の取り下げ**になるので、
-やるかどうかは相談してから。
-
-### 2. 未投稿の2組を上げる
+### 1. 未投稿の2組を上げる（クォータは JST 16:00 に PT日が変わる）
 
 **長尺が先**（ショートの概要欄が長尺のURLを持つため）。
 
@@ -84,7 +78,7 @@ python scripts/upload_youtube.py work/2026-08-20-yotsui-kakkoii-short  --schedul
 
 **1日6本が上限**（10,000ユニット ÷ 1,600）。1と合わせるとちょうど埋まる。
 
-### 3. 測っていない穴を2つ埋める
+### 2. 測っていない穴を2つ埋める
 
 どちらも安く、次の判断に直接効く。
 
@@ -98,7 +92,7 @@ python scripts/report_stats.py --retention
 - **カードと終了画面**を1本に入れて、`cardImpressions` が0から動くかを見る。
   いま0なのは効果が無いからではなく、**置いていないから**
 
-### 4. 相談したいこと（手を動かす前に）
+### 3. 相談したいこと（手を動かす前に）
 
 数字が出たので、前回「まだ相談していない判断」と書いた3つは形が変わった。
 
@@ -140,5 +134,8 @@ op5uGCFQJ5s  FureBeVFerE                                                       (
   タグもタイトル形式も尺も同じ。こちら側の変更では説明できない
 - 全動画に `suggestions.processingHints: ["nonStreamableMov"]`（faststart 未適用のMOV）。
   `processingStatus` は `succeeded`。**実害があるかは確かめていない**
-- 作り直したショートが伸びるかは、まだ1本も公開されていないので分からない
+- **作り直したショートが伸びるかは、まだ分からない。** 訂正版の初回公開は
+  8/27 12:00 JST の `U9FMPUTeZ-Y`。比べる相手は
+  [ベースライン](docs/2026-08-25-baseline.md) §2 ではなく、08-20以降の同じ配信条件の回。
+  **見るのは再生数ではなく 25%地点の残存と高評価率**
 - 「視聴者の種類（新規/リピート）」は Analytics API が 500 を返して取れない
