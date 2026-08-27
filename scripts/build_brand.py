@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""チャンネルのアイコンとバナーを作る。
+"""チャンネルのアイコン・透かし・バナーを作る。
 
-  python scripts/build_brand.py            # work/_brand/ に icon.png と banner.png
+  python scripts/build_brand.py            # work/_brand/ に icon / watermark / banner
   python scripts/build_brand.py --guide    # バナーに安全領域の枠を重ねた確認用も出す
+
+透かし（watermark.png）は再生中のプレーヤー右下に出る登録ボタン。
+Studio > カスタマイズ > プロフィール > 動画の透かし から手で上げる。APIには無い。
 
 権利者のロゴ・画像・キャラクターは使わない（各社ガイドラインで禁止）。
 令和の虎のロゴは「赤いリング＋赤い筆文字＋金の人物シルエット＋イナズマ」で、
@@ -142,6 +145,24 @@ def build_icon(size: int = 800) -> Path:
     return p
 
 
+def build_watermark(size: int = 150) -> Path:
+    """再生中の登録ボタン（透かし）用。地を敷かず、虎だけを透明地に置く。
+
+    透かしは動画の上に重なる。アイコンのように地を敷くと白い四角が
+    貼りついて見えるので、ここは `_tiger` の透明地をそのまま使う。
+    プレーヤー右下に小さく出るだけなので、文字は入れない。
+    """
+    img = Image.new("RGBA", (size, size), CLEAR)
+    tiger = _tiger(size)
+    img.paste(tiger, (0, 0), tiger)
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    p = OUT / "watermark.png"
+    img.save(p)
+    print(f"✓ {p}  {img.size}  {p.stat().st_size / 1024:.0f} KB")
+    return p
+
+
 def build_banner(guide: bool = False) -> Path:
     img = _ground(BANNER_W, BANNER_H)
     d = ImageDraw.Draw(img)
@@ -190,6 +211,7 @@ def main() -> None:
     ap.add_argument("--guide", action="store_true", help="安全領域の枠を重ねた確認用も出す")
     a = ap.parse_args()
     build_icon()
+    build_watermark()
     build_banner(a.guide)
 
 
