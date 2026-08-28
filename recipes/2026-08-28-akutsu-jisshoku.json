@@ -223,14 +223,14 @@
     "faces": [
       {
         "at": 686.0,
-        "x": 0.6,
-        "crop_top": 0.05,
+        "x": 0.58,
+        "crop_top": 0.13,
         "crop_bottom": 0.3
       },
       {
         "at": 1163.0,
         "x": 0.37,
-        "crop_top": 0.08,
+        "crop_top": 0.15,
         "crop_bottom": 0.3
       }
     ],
