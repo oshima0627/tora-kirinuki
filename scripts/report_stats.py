@@ -7,7 +7,9 @@
 
 **再生数は `videos.list` の statistics で見ること。** YouTube Analytics は
 2〜3日遅れるので、直近の日付が空でも「ゼロ確定」ではない。
-インプレッション数とCTRは Analytics API に無く、Studio の画面でしか見られない。
+**サムネイルのインプレッション数とCTRは Analytics API に無い。** Studio の
+アナリティクス > コンテンツ >「動画」フィルタでしか見られない。
+**カードのインプレッションは API から取れる**（--traffic で出る）。
 
 **08-20公開分でショートの配信が始まった。** それ以前は6〜15再生、以降は
 数千再生で、こちらの変更では説明できない断絶がある（`docs/2026-08-25-baseline.md`）。
@@ -140,14 +142,35 @@ def main() -> None:
         # **未来の日付を渡すと400になる。** 予約ぶんが混ざるので今日で止める。
         # subscribersGained は insightTrafficSourceType と併用できない
         today = date.today().isoformat()
+        start, end = days[0], min(days[-1], today)
+
+        # **0 を「効かなかった」と読まないための行。** Analytics は2〜3日遅れる。
+        # 施策日がこの最終日より後なら、その施策はまだ1件も集計されていない。
+        seen = ya.reports().query(
+            ids=ids_, startDate=start, endDate=end,
+            metrics="views", dimensions="day").execute().get("rows") or []
+        last = max((r[0] for r in seen), default="（なし）")
+        print(f"\nデータが入っている最終日: {last}（今日は {today}）")
+
         res = ya.reports().query(
             ids=ids_,
-            startDate=days[0], endDate=min(days[-1], today),
+            startDate=start, endDate=end,
             metrics="views,estimatedMinutesWatched",
             dimensions="insightTrafficSourceType", sort="-views").execute()
         print("\nトラフィックソース（Analytics は2〜3日遅れる）")
         for row in res.get("rows") or []:
             print(f"  {row[0]:24} 再生{row[1]:>6}  視聴分{row[2]:>6}")
+
+        # **カードのインプレッションは Analytics API から取れる。** Studio は要らない。
+        card = (ya.reports().query(
+            ids=ids_, startDate=start, endDate=end,
+            metrics="cardImpressions,cardClicks,cardClickRate,"
+                    "cardTeaserImpressions,cardTeaserClicks").execute().get("rows")
+            or [[0, 0, 0, 0, 0]])[0]
+        print("\nカード（上の最終日が設置日より前なら、0 は「まだ集計されていない」）")
+        print(f"  インプレッション {card[0]:>6}  クリック {card[1]:>4}"
+              f"  クリック率 {card[2]:>5.2f}%")
+        print(f"  ティーザー表示   {card[3]:>6}  クリック {card[4]:>4}")
 
 
 if __name__ == "__main__":
