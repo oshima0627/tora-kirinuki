@@ -51,6 +51,11 @@ def validate(recipe: dict) -> None:
 
 SHORT_MAX_SEC = 180.0     # Shorts として扱われる上限（YouTube の仕様）
 
+# TikTok の収益化対象は1分以上の動画。ffmpeg の実測誤差（DUR_TOLERANCE = 1秒）と
+# TikTok 側の処理で数フレーム削られる分の余裕を取って65秒を下限にする。
+# ギリギリを狙って対象外になるのがいちばん無駄なので、警告ではなくエラーにする
+SHORT_MIN_SEC = 65.0
+
 # 実際に伸びている競合の尺（2026-08-13 実測）。令和の虎塾のショートは67〜73秒で
 # 公開1〜4日に3,925〜28,477再生、【忙しい人のための】は22〜37秒。
 # こちらの103秒・132秒は0〜2再生だった。上限180秒に収まっていても長すぎる。
@@ -98,6 +103,10 @@ def validate_short(recipe: dict, cues: list[dict] | None = None) -> list[str]:
                 f"short の区間（{start:.1f}-{end:.1f}）に字幕が1つも無い。"
                 "字幕を焼けないショートは意味が伝わらない")
 
+    if end - start < SHORT_MIN_SEC:
+        raise ValueError(
+            f"short が {end - start:.1f}秒。TikTok の収益化対象は1分以上なので "
+            f"{SHORT_MIN_SEC:.0f}秒を下限にしている")
     if end - start > SHORT_MAX_SEC:
         raise ValueError(
             f"short が {end - start:.0f}秒。Shorts の上限 {SHORT_MAX_SEC:.0f}秒を超えている")
