@@ -1,6 +1,6 @@
 # 引き継ぎ
 
-最終更新: 2026-08-30（JST 3時台）
+最終更新: 2026-08-30（JST 3時台・TikTok実装後）
 
 ## いま何をしているのか
 
@@ -13,9 +13,11 @@
 8/29 のクォータは 6,700 使った（100＝再生リスト、6,600＝4本）。
 **9/4 分のアップロードは本日 8/30 の JST 16:00 以降**（クォータ回復後）。
 
-**8/30 に TikTok 配信の設計を決めた。**
-[`docs/superpowers/specs/2026-08-30-tiktok-distribution-design.md`](docs/superpowers/specs/2026-08-30-tiktok-distribution-design.md)。
-実装はまだ入れていない（尺の下限と `caption.txt`）。
+**8/30 に TikTok 配信を設計して実装まで終えた。**
+設計 [`…-tiktok-distribution-design.md`](docs/superpowers/specs/2026-08-30-tiktok-distribution-design.md) /
+計画 [`…-tiktok-distribution.md`](docs/superpowers/plans/2026-08-30-tiktok-distribution.md)。
+**ブランチ `claude/susumete-kudasai-71796e` に5コミット。main への取り込みは判断待ち。**
+**TikTok にはまだ1本も投稿していない**（権利者への照会が未送信）。
 
 ## 今回やったこと
 
@@ -27,6 +29,7 @@
 | `upload_youtube.py` ×4（長尺→ショートの順） | 4本とも成功。サムネも4本とも設定済み |
 | `report_stats.py --traffic` | データ最終日 **2026-08-26 のまま**（朝と同じ）。施策日 8/27 に未到達 |
 | レシピ `2026-08-29-mai-namesugi` を新規作成、ビルド | 長尺15:35・ショート70.1s。サムネは1回作り直し |
+| TikTok配信の設計・計画・実装（8/30） | 5タスク。テスト **176 → 186 passed** |
 
 ## 検証済みの事実（実際に画面に出した出力）
 
@@ -119,6 +122,27 @@
 - 最初のビルドで「論点カード30が2行に収まらない」で**中断された**。文言を詰めて通した
 - 論点カードは最初62枚書いたが、既存が 25秒に1枚なので **41枚（22.8秒に1枚）** に絞った
 
+### TikTok 配信の実装（ブランチ上、main 未取り込み）
+
+| コミット | 内容 |
+|---|---|
+| `f627648` | `SHORT_MIN_SEC = 65.0` を新設してエラー。既存テスト3本のフィクスチャも直した |
+| `71f40a5` | `SHORT_RECOMMENDED_SEC` を 75 → 73 |
+| `12c4765` | `build_caption()` と `_source_lines()`（元動画URLを概要欄と共通化） |
+| `7c3124c` | `build_short.py` が `caption.txt` を出す |
+| `781498f` | `state/tiktok.json`・照会文の草案・`daily-workflow.md` 追記 |
+
+- **テスト 176 → 186 passed。** 統合しようとしているツリーそのもので流した
+- **実ビルドで `caption.txt` の中身を目で読んだ。** 1行目にショートのタイトル、
+  `【元動画】…` と `https://www.youtube.com/watch?v=DSCYmCBAp_I`、`CREDIT`、末尾にハッシュタグ
+- **既存の出力は変わっていない。** `mai-namesugi-short` の尺は着手前と同じ **70.133333**
+- **下限65秒を入れた時点で既存テスト3本が巻き添えで落ちた**（`with_short()` の既定が
+  50秒だったため）。フィクスチャを 2300.0–2368.0（68秒）に直して解消
+- **ビルド検証を最初に本体側から実行してしまい、編集前のコードが動いて
+  `caption.txt` が出なかった。** ワークツリー側から流し直して確認した。
+  **コードを直したら、直したツリーから実行すること**（`work/` はジャンクションで共有だが
+  `scripts/` は共有されない）
+
 ### アナリティクス
 
 **朝の確認から何も動いていない。** データ最終日は **2026-08-26**（朝も 08-26）。
@@ -202,26 +226,23 @@ python scripts/sync_playlists.py --apply
 
 **score は機械的な点数。中身に山場があるかは1本ずつ確かめること。**
 
-### 4. TikTok 配信を実装する（設計済み・未実装）
+### 4. TikTok 配信 — 実装は済んだ。残りは2つ
 
-設計: [`docs/superpowers/specs/2026-08-30-tiktok-distribution-design.md`](docs/superpowers/specs/2026-08-30-tiktok-distribution-design.md)
+**① ブランチ `claude/susumete-kudasai-71796e` を main に取り込む（判断待ち）**
 
-**新しい動画の種類は作らない。** 同じ縦型ショートを YouTube Shorts と TikTok の
-両方に出す。TikTok の収益化は1分以上が対象で、このチャンネルの実測の高再生ゾーン
-（67〜73秒）と重なるため、**尺の窓を 65〜73秒に決めた**。
+5コミット。`git reset --hard main` で c56daad から分岐させてある。
 
-| 実装 | 内容 |
-|---|---|
-| `scripts/recipe.py` | `SHORT_MIN_SEC = 65.0` を新設してエラー、`SHORT_RECOMMENDED_SEC` を 75→73 |
-| `scripts/build_short.py` | `caption.txt` を出力（元動画URL＋`CREDIT`＋ハッシュタグ） |
-| `state/tiktok.json` | 別台帳。**`published.json` には絶対に混ぜない**。手で書く |
+```bash
+cd C:/Users/oshim/Documents/projects/tora-kirinuki
+git checkout main && git merge claude/susumete-kudasai-71796e
+python -m pytest tests/ -q     # マージ後にもう一度流す
+```
 
-**投稿の前に `get-clip@razil.jp` へ照会する（大島さんが送信）。**
-ガイドライン12項に投稿先プラットフォームの記載は無いが、許諾はチャンネルID単位で
-権利者の立場は「黙認」。下振れが YouTube 側の許諾ごと失うことになり得る。
-**mp4 を作るのはリスクゼロ、リスクは投稿にだけある**ので、返事を待つ間も制作は止めない。
+**② 権利者へ照会するメールを送る（大島さんが送信）**
 
-**既存14本（65秒未満）はビルドし直すとエラーになる。** これは正しい挙動として受け入れる。
+草案: [`docs/2026-08-30-tiktok-inquiry-draft.md`](docs/2026-08-30-tiktok-inquiry-draft.md)
+宛先 `get-clip@razil.jp`。**返事が来るまで TikTok には1本も投稿しない。**
+返事に日数がかかる可能性があるので、マージの判断とは別に先に送ってよい。
 
 ### 5. 8/30 以降にアナリティクスを測り直す
 
@@ -364,3 +385,7 @@ studio.youtube.com/video/<ID>/edit
 - 長尺の残存カーブ（`elapsedVideoTimeRatio`）は未測定
 - 08-20 の配信断絶の原因は不明のまま
 - **`TuYYB2N0JGE` の未使用区間は中身を見ていない**
+- **TikTok には1本も投稿していない。** 権利者への照会メールも未送信
+- **TikTok 側の挙動は何も測っていない**（伸びるか、収益化条件に届くか）
+- **`state/tiktok.json` は空。** 手で書く運用なのでスクリプトは無い
+- **`build_caption()` の出力を実際に TikTok の投稿欄に貼っていない**（文字数・改行の見え方は未確認）
