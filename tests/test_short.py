@@ -99,6 +99,18 @@ def test_推奨より長いショートは警告になる():
     assert any("完走されにくい" in w for w in warnings)
 
 
+def test_73秒を超えたら警告になる():
+    # 実測の高再生ゾーンは67〜73秒。103秒・132秒は0〜2再生だった
+    from scripts.recipe import validate_short
+    warnings = validate_short({"short": {"start": 0.0, "end": 74.0, "hook": "h"}})
+    assert any("完走されにくい" in w for w in warnings)
+
+
+def test_73秒ちょうどは警告しない():
+    from scripts.recipe import validate_short
+    assert validate_short({"short": {"start": 0.0, "end": 73.0, "hook": "h"}}) == []
+
+
 def test_推奨に収まれば警告は出ない():
     from scripts.recipe import validate_short
     assert validate_short({"short": {"start": 0.0, "end": 65.0, "hook": "h"}}) == []

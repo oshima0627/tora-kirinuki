@@ -60,7 +60,8 @@ SHORT_MIN_SEC = 65.0
 # 公開1〜4日に3,925〜28,477再生、【忙しい人のための】は22〜37秒。
 # こちらの103秒・132秒は0〜2再生だった。上限180秒に収まっていても長すぎる。
 # 落とすほどではないので警告にとどめる（尺は素材で決まることもある）
-SHORT_RECOMMENDED_SEC = 75.0
+# 2026-08-30: TikTok と共用する窓を 65〜73秒に決めたので 75.0 から下げた
+SHORT_RECOMMENDED_SEC = 73.0
 
 
 def validate_short(recipe: dict, cues: list[dict] | None = None) -> list[str]:
