@@ -118,18 +118,35 @@ def validate_short(recipe: dict, cues: list[dict] | None = None) -> list[str]:
     return warnings
 
 
+def _source_lines(recipe: dict) -> list[str]:
+    """元動画のタイトルとURL。**概要欄にもキャプションにも必ず入れる。**
+
+    権利者ガイドラインの必須条件なので、書き手に任せず1箇所で作る。
+    """
+    return [f"【元動画】{recipe['source_title']}", recipe["source_url"]]
+
+
 def build_description(recipe: dict) -> str:
     """概要欄。冒頭の元動画URL・タイトルは手書きさせず、ここで必ず付ける。"""
     body = (recipe.get("description") or "").strip()
     tags = " ".join(f"#{t}" for t in (recipe.get("tags") or []))
-    parts = [
-        f"【元動画】{recipe['source_title']}",
-        recipe["source_url"],
-        "",
-        body,
-        "",
-        CREDIT,
-    ]
+    parts = [*_source_lines(recipe), "", body, "", CREDIT]
+    if tags:
+        parts += ["", tags]
+    return "\n".join(parts).strip() + "\n"
+
+
+def build_caption(recipe: dict) -> str:
+    """TikTok へ手で投稿するときに貼り付けるテキスト。
+
+    **概要欄（build_description）は YouTube 用の長文なので使わない。**
+    TikTok の URL はリンクにならないが、元動画へのリンクは権利者ガイドラインの
+    必須条件なので、意図として必ず書く。
+    """
+    short = recipe.get("short") or {}
+    head = (short.get("title") or short.get("hook") or recipe["title"]).strip()
+    tags = " ".join(f"#{t}" for t in (recipe.get("tags") or []))
+    parts = [head, "", *_source_lines(recipe), "", CREDIT]
     if tags:
         parts += ["", tags]
     return "\n".join(parts).strip() + "\n"

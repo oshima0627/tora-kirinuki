@@ -1,6 +1,6 @@
 import pytest
 
-from scripts.recipe import build_description, validate
+from scripts.recipe import CREDIT, build_caption, build_description, validate
 
 
 def base() -> dict:
@@ -104,3 +104,47 @@ def test_タグが無くても壊れない():
     r = base()
     r["tags"] = []
     assert "【元動画】" in build_description(r)
+
+
+def with_short_for_caption() -> dict:
+    r = base()
+    r["short"] = {"start": 2300.0, "end": 2368.0,
+                  "hook": "粗利は1棟20万円。それでも満額200万円",
+                  "title": "【令和の虎】粗利は1棟20万円 #令和の虎 #切り抜き"}
+    return r
+
+
+def test_キャプションの1行目はショートのタイトル():
+    c = build_caption(with_short_for_caption())
+    assert c.splitlines()[0] == "【令和の虎】粗利は1棟20万円 #令和の虎 #切り抜き"
+
+
+def test_titleが無ければhookを使う():
+    r = with_short_for_caption()
+    del r["short"]["title"]
+    assert build_caption(r).splitlines()[0] == "粗利は1棟20万円。それでも満額200万円"
+
+
+def test_キャプションに元動画のURLが入る():
+    # 権利者ガイドラインの必須条件。手書きさせない
+    c = build_caption(with_short_for_caption())
+    assert "https://www.youtube.com/watch?v=TuYYB2N0JGE" in c
+    assert "【元動画】" in c
+
+
+def test_キャプションにCREDITがそのまま入る():
+    # CREDIT 自体が「公式チャンネルではありません」という否定文なので、
+    # 「公式」の単純禁止では判定できない。文言がそのまま入っていることを見る
+    assert CREDIT in build_caption(with_short_for_caption())
+
+
+def test_キャプションの末尾はハッシュタグ():
+    c = build_caption(with_short_for_caption())
+    assert c.rstrip().endswith("#令和の虎 #切り抜き")
+
+
+def test_概要欄にも同じ元動画行が入る():
+    # _source_lines を共通化しても build_description が壊れないことを見る
+    d = build_description(base())
+    assert "【元動画】" in d
+    assert "https://www.youtube.com/watch?v=TuYYB2N0JGE" in d
