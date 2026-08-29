@@ -217,12 +217,12 @@
         "at": 1483.0,
         "x": 0.5,
         "crop_top": 0.14,
-        "crop_bottom": 0.26
+        "crop_bottom": 0.32
       },
       {
         "at": 110.0,
         "x": 0.52,
-        "crop_bottom": 0.3
+        "crop_bottom": 0.32
       }
     ],
     "top": [
