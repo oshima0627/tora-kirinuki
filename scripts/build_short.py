@@ -30,7 +30,8 @@ from scripts.cards import (SHORT_BOTTOM, SHORT_SIZE, SHORT_TOP,  # noqa: E402
                            render_short_caption, render_short_frame)
 from scripts.fetch_source import source_dir  # noqa: E402
 from scripts.moments import rewind_to_topic_head  # noqa: E402
-from scripts.recipe import build_description, validate, validate_short  # noqa: E402
+from scripts.recipe import (build_caption, build_description,  # noqa: E402
+                            validate, validate_short)
 from scripts.subtitles import (burn_plan, risky_lines,  # noqa: E402
                                unused_fixes)
 
@@ -185,6 +186,8 @@ def build(recipe_path: Path, dry_run: bool = False) -> Path:
          "-frames:v", "1", str(out / "thumb.png")], check=True, capture_output=True)
 
     (out / "description.txt").write_text(build_description(recipe), encoding="utf-8")
+    # TikTok へは手で投稿する。貼り付けるテキストをここで出しておく
+    (out / "caption.txt").write_text(build_caption(recipe), encoding="utf-8")
     short = recipe["short"]
     (out / "meta.json").write_text(json.dumps({
         "id": f"{recipe['id']}-short",

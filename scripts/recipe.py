@@ -51,11 +51,17 @@ def validate(recipe: dict) -> None:
 
 SHORT_MAX_SEC = 180.0     # Shorts として扱われる上限（YouTube の仕様）
 
+# TikTok の収益化対象は1分以上の動画。ffmpeg の実測誤差（DUR_TOLERANCE = 1秒）と
+# TikTok 側の処理で数フレーム削られる分の余裕を取って65秒を下限にする。
+# ギリギリを狙って対象外になるのがいちばん無駄なので、警告ではなくエラーにする
+SHORT_MIN_SEC = 65.0
+
 # 実際に伸びている競合の尺（2026-08-13 実測）。令和の虎塾のショートは67〜73秒で
 # 公開1〜4日に3,925〜28,477再生、【忙しい人のための】は22〜37秒。
 # こちらの103秒・132秒は0〜2再生だった。上限180秒に収まっていても長すぎる。
 # 落とすほどではないので警告にとどめる（尺は素材で決まることもある）
-SHORT_RECOMMENDED_SEC = 75.0
+# 2026-08-30: TikTok と共用する窓を 65〜73秒に決めたので 75.0 から下げた
+SHORT_RECOMMENDED_SEC = 73.0
 
 
 def validate_short(recipe: dict, cues: list[dict] | None = None) -> list[str]:
@@ -98,6 +104,10 @@ def validate_short(recipe: dict, cues: list[dict] | None = None) -> list[str]:
                 f"short の区間（{start:.1f}-{end:.1f}）に字幕が1つも無い。"
                 "字幕を焼けないショートは意味が伝わらない")
 
+    if end - start < SHORT_MIN_SEC:
+        raise ValueError(
+            f"short が {end - start:.1f}秒。TikTok の収益化対象は1分以上なので "
+            f"{SHORT_MIN_SEC:.0f}秒を下限にしている")
     if end - start > SHORT_MAX_SEC:
         raise ValueError(
             f"short が {end - start:.0f}秒。Shorts の上限 {SHORT_MAX_SEC:.0f}秒を超えている")
@@ -108,18 +118,35 @@ def validate_short(recipe: dict, cues: list[dict] | None = None) -> list[str]:
     return warnings
 
 
+def _source_lines(recipe: dict) -> list[str]:
+    """元動画のタイトルとURL。**概要欄にもキャプションにも必ず入れる。**
+
+    権利者ガイドラインの必須条件なので、書き手に任せず1箇所で作る。
+    """
+    return [f"【元動画】{recipe['source_title']}", recipe["source_url"]]
+
+
 def build_description(recipe: dict) -> str:
     """概要欄。冒頭の元動画URL・タイトルは手書きさせず、ここで必ず付ける。"""
     body = (recipe.get("description") or "").strip()
     tags = " ".join(f"#{t}" for t in (recipe.get("tags") or []))
-    parts = [
-        f"【元動画】{recipe['source_title']}",
-        recipe["source_url"],
-        "",
-        body,
-        "",
-        CREDIT,
-    ]
+    parts = [*_source_lines(recipe), "", body, "", CREDIT]
+    if tags:
+        parts += ["", tags]
+    return "\n".join(parts).strip() + "\n"
+
+
+def build_caption(recipe: dict) -> str:
+    """TikTok へ手で投稿するときに貼り付けるテキスト。
+
+    **概要欄（build_description）は YouTube 用の長文なので使わない。**
+    TikTok の URL はリンクにならないが、元動画へのリンクは権利者ガイドラインの
+    必須条件なので、意図として必ず書く。
+    """
+    short = recipe.get("short") or {}
+    head = (short.get("title") or short.get("hook") or recipe["title"]).strip()
+    tags = " ".join(f"#{t}" for t in (recipe.get("tags") or []))
+    parts = [head, "", *_source_lines(recipe), "", CREDIT]
     if tags:
         parts += ["", tags]
     return "\n".join(parts).strip() + "\n"

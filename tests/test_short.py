@@ -11,7 +11,8 @@ QUOTE = [[{"t": "倍にして返してもらおう", "c": "r"}]]
 
 def with_short(**over) -> dict:
     r = base()
-    r["short"] = {"start": 2300.0, "end": 2350.0,
+    # 既定は窓（65〜73秒）の中。下限を割ると validate_short が落ちる
+    r["short"] = {"start": 2300.0, "end": 2368.0,
                   "hook": "粗利は1棟20万円。それでも満額200万円",
                   "head": HEAD, "quote": QUOTE}
     r["short"].update(over)
@@ -41,6 +42,18 @@ def test_フックが空なら落ちる():
 def test_3分を超えたら落ちる():
     with pytest.raises(ValueError, match="180"):
         validate_short(with_short(start=0.0, end=181.0))
+
+
+def test_65秒未満は落ちる():
+    # TikTok の収益化対象は1分以上。実測誤差の余裕を含めて65秒を下限にしている
+    with pytest.raises(ValueError, match="65"):
+        validate_short(with_short(start=2300.0, end=2364.9))
+
+
+def test_巻き戻して65秒に届けば通る():
+    # 尺はレシピの値ではなく巻き戻し後の長さで測る
+    cues = cue_list((0.0, "前の話が終わりました。"), (5.0, "ここから話が始まります。"))
+    validate_short(with_short(start=12.0, end=70.0), cues)
 
 
 def test_縦型フレームは1080x1920で返る():
@@ -86,6 +99,18 @@ def test_推奨より長いショートは警告になる():
     assert any("完走されにくい" in w for w in warnings)
 
 
+def test_73秒を超えたら警告になる():
+    # 実測の高再生ゾーンは67〜73秒。103秒・132秒は0〜2再生だった
+    from scripts.recipe import validate_short
+    warnings = validate_short({"short": {"start": 0.0, "end": 74.0, "hook": "h"}})
+    assert any("完走されにくい" in w for w in warnings)
+
+
+def test_73秒ちょうどは警告しない():
+    from scripts.recipe import validate_short
+    assert validate_short({"short": {"start": 0.0, "end": 73.0, "hook": "h"}}) == []
+
+
 def test_推奨に収まれば警告は出ない():
     from scripts.recipe import validate_short
     assert validate_short({"short": {"start": 0.0, "end": 65.0, "hook": "h"}}) == []
@@ -104,7 +129,7 @@ def test_区間に字幕が無ければ落ちる():
 
 def test_字幕があれば通る():
     cues = cue_list((2300.0, "ここから話が始まります。"), (2310.0, "続きです。"))
-    validate_short(with_short(start=2300.0, end=2350.0), cues)
+    validate_short(with_short(start=2300.0, end=2368.0), cues)
 
 
 def test_巻き戻した結果3分を超えたら落ちる():
@@ -122,5 +147,5 @@ def test_巻き戻したぶんも警告の尺に含める():
 
 def test_開始が発話の途中なら警告する():
     cues = cue_list((0.0, "前の話が終わりました。"), (5.0, "ここから話が始まります。"))
-    warnings = validate_short(with_short(start=8.0, end=60.0), cues)
+    warnings = validate_short(with_short(start=8.0, end=75.0), cues)
     assert any("5.0" in w for w in warnings)
