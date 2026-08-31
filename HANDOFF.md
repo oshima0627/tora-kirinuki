@@ -1,6 +1,6 @@
 # 引き継ぎ
 
-最終更新: 2026-08-30（JST 3時台・TikTok実装後）
+最終更新: 2026-08-30（JST 4時台・TikTok実装を main へ取り込み済み）
 
 ## いま何をしているのか
 
@@ -16,7 +16,7 @@
 **8/30 に TikTok 配信を設計して実装まで終えた。**
 設計 [`…-tiktok-distribution-design.md`](docs/superpowers/specs/2026-08-30-tiktok-distribution-design.md) /
 計画 [`…-tiktok-distribution.md`](docs/superpowers/plans/2026-08-30-tiktok-distribution.md)。
-**ブランチ `claude/susumete-kudasai-71796e` に5コミット。main への取り込みは判断待ち。**
+**main に取り込み済み**（マージコミット `e7144f2`、push 済み）。
 **TikTok にはまだ1本も投稿していない**（権利者への照会が未送信）。
 
 ## 今回やったこと
@@ -122,7 +122,7 @@
 - 最初のビルドで「論点カード30が2行に収まらない」で**中断された**。文言を詰めて通した
 - 論点カードは最初62枚書いたが、既存が 25秒に1枚なので **41枚（22.8秒に1枚）** に絞った
 
-### TikTok 配信の実装（ブランチ上、main 未取り込み）
+### TikTok 配信の実装（main 取り込み済み）
 
 | コミット | 内容 |
 |---|---|
@@ -142,6 +142,10 @@
   `caption.txt` が出なかった。** ワークツリー側から流し直して確認した。
   **コードを直したら、直したツリーから実行すること**（`work/` はジャンクションで共有だが
   `scripts/` は共有されない）
+- **マージ後の本体でも確認した。** `186 passed`、`SHORT_MIN_SEC=65.0` /
+  `SHORT_RECOMMENDED_SEC=73.0`、60秒は
+  「short が 60.0秒。TikTok の収益化対象は1分以上なので 65秒を下限にしている」で落ち、
+  70秒は通る。実ビルドの尺も `70.133333` のままで `caption.txt` も出た
 
 ### アナリティクス
 
@@ -226,19 +230,11 @@ python scripts/sync_playlists.py --apply
 
 **score は機械的な点数。中身に山場があるかは1本ずつ確かめること。**
 
-### 4. TikTok 配信 — 実装は済んだ。残りは2つ
+### 4. TikTok 配信 — 残っているのは照会メールだけ
 
-**① ブランチ `claude/susumete-kudasai-71796e` を main に取り込む（判断待ち）**
+実装は main に取り込み済み（`e7144f2`）。マージ後のテストも 186 passed。
 
-5コミット。`git reset --hard main` で c56daad から分岐させてある。
-
-```bash
-cd C:/Users/oshim/Documents/projects/tora-kirinuki
-git checkout main && git merge claude/susumete-kudasai-71796e
-python -m pytest tests/ -q     # マージ後にもう一度流す
-```
-
-**② 権利者へ照会するメールを送る（大島さんが送信）**
+**権利者へ照会するメールを送る（大島さんが送信）**
 
 草案: [`docs/2026-08-30-tiktok-inquiry-draft.md`](docs/2026-08-30-tiktok-inquiry-draft.md)
 宛先 `get-clip@razil.jp`。**返事が来るまで TikTok には1本も投稿しない。**
