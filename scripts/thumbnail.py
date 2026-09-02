@@ -103,6 +103,12 @@ def _bubble_layer(text: str, color, max_w: int, side: str) -> Image.Image:
     return layer
 
 
+# 吹き出しの横幅の上限。**顔にかからない幅に抑える。**
+# 顔を寄りで切ると顔幅がパネルの7割を超え、中央の通路が狭くなる。
+# 0.56 だと 2026-09-02 のサムネで両方の顔に被った。狭めると文字が自動で小さくなるが、
+# 顔の上に文字が乗るよりは読める（実測で比較して 0.48 にした）。
+BUBBLE_MAX_W = 0.48
+
 # 吹き出しの下端をここに合わせる。**目元ではなく口元の高さに置く。**
 # 顔は顎に向かって細くなるので、下のほうが左右の余白を取りやすい。
 # 目元に置くと、外側に寄せても顔幅が広い位置で当たってしまう。
@@ -193,7 +199,7 @@ def render_thumbnail(photo: Image.Image, top: list[dict] | None = None,
 
     if bubbles:
         layers = [_bubble_layer(b["t"], COLORS.get(b.get("c", "r"), RED),
-                                int(w * 0.56), b.get("side", "l"))
+                                int(w * BUBBLE_MAX_W), b.get("side", "l"))
                   for b in bubbles]
         gap = int(h * BUBBLE_GAP)
         total = sum(l.height for l in layers) + gap * (len(layers) - 1)
