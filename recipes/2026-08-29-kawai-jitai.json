@@ -219,15 +219,17 @@
     "faces": [
       {
         "at": 679.0,
-        "x": 0.47,
+        "x": 0.464,
         "crop_top": 0.13,
-        "crop_bottom": 0.3
+        "crop_bottom": 0.3,
+        "bias": 0.22
       },
       {
         "at": 293.0,
-        "x": 0.52,
+        "x": 0.503,
         "crop_top": 0.13,
-        "crop_bottom": 0.32
+        "crop_bottom": 0.32,
+        "bias": 0.34
       }
     ],
     "top": [
