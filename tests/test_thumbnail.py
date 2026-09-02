@@ -88,3 +88,9 @@ def test_相手の発言はマゼンタではない():
     r, g, b = COLORS["m"]
     assert (r, g, b) != (255, 0, 220)
     assert b > r
+
+
+def test_暗い下地の上では明るい赤を使う():
+    # 白地の吹き出し用の赤をそのまま幕の上に置くと沈んで読めない
+    from scripts.thumbnail import COLORS, ON_DARK
+    assert sum(ON_DARK["r"]) > sum(COLORS["r"])
