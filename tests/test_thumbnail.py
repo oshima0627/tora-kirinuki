@@ -65,3 +65,26 @@ def test_元フレームの上部は使わない():
     # 募集告知が写り込まない高さまで落としてから使う
     from scripts.thumbnail import PHOTO_TOP
     assert PHOTO_TOP >= 0.15
+
+
+def test_下段は縁ではなく下地で読ませる():
+    # 三重の縁は画数の多い漢字の内側を塗り潰す。幕を敷いて縁を無くした
+    plain = render_thumbnail(PHOTO)
+    veiled = render_thumbnail(PHOTO, bottom=BOTTOM)
+    assert sum(veiled.getpixel((5, 715))) < sum(plain.getpixel((5, 715)))
+
+
+def test_幕は下ほど濃い():
+    img = render_thumbnail(PHOTO, bottom=BOTTOM)
+    assert sum(img.getpixel((5, 715))) < sum(img.getpixel((5, 560)))
+
+
+def test_下段が無ければ幕は出ない():
+    assert render_thumbnail(PHOTO, TOP).getpixel((5, 715)) == (90, 100, 110)
+
+
+def test_相手の発言はマゼンタではない():
+    from scripts.thumbnail import COLORS
+    r, g, b = COLORS["m"]
+    assert (r, g, b) != (255, 0, 220)
+    assert b > r
