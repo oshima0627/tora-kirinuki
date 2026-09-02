@@ -34,7 +34,7 @@
 
 from __future__ import annotations
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from scripts.draw import pick_font
 
@@ -265,3 +265,59 @@ def render_thumbnail(photo: Image.Image, top: list[dict] | None = None,
         s = _fit(d, bottom, int(w * BOTTOM_MAX_W), int(h * 0.125))
         _draw_row(d, bottom, w // 2, h - int(h * BOTTOM_BASELINE), s, ON_DARK)
     return img
+
+
+# 吹き出しが顔に被っていないかの検査。**目視で判定しないための部品。**
+# 2026-09-02 に「見た感じ大丈夫」で通した5本のうち4本が実際には被っていた。
+TOUCH_DIFF = 8      # 吹き出しの有無でこれだけ変わったら「触った」とみなす
+BODY_LEVEL = 200    # 吹き出しの本体（白）とみなす明るさ。影は数に入れない
+
+
+def _gt(band: Image.Image, k: int) -> Image.Image:
+    """しきい値で 0/255 のマスクにする。"""
+    return band.point(lambda v: 255 if v > k else 0)
+
+
+def _skin_mask(rgb: Image.Image) -> Image.Image:
+    """肌色らしい画素を 0/255 で返す（Kovac らの RGB ルール・昼光条件）。
+
+    **木の椅子や肌色の服にも反応する。** 数だけで断定せず、矩形も見ること。
+    """
+    r, g, b = rgb.split()
+    mx = ImageChops.lighter(ImageChops.lighter(r, g), b)
+    mn = ImageChops.darker(ImageChops.darker(r, g), b)
+    m = _gt(r, 95)
+    for other in (_gt(g, 40), _gt(b, 20),
+                  _gt(ImageChops.subtract(mx, mn), 15),
+                  _gt(ImageChops.difference(r, g), 15),
+                  _gt(ImageChops.subtract(r, g), 0),
+                  _gt(ImageChops.subtract(r, b), 0)):
+        m = ImageChops.multiply(m, other)      # 0/255 どうしの論理積
+    return m
+
+
+def skin_under_bubbles(photo: Image.Image, top: list[dict] | None = None,
+                       bubbles: list[dict] | None = None,
+                       bottom: list[dict] | None = None,
+                       size: tuple[int, int] = SIZE) -> tuple[int, tuple | None]:
+    """吹き出しの下に隠れた肌色の画素を数える。(画素数, 矩形) を返す。
+
+    吹き出しあり／なしを両方組んで差分を取り、**吹き出しの本体が乗った場所に
+    元々あった画素**を肌色判定にかける。0 なら顔に被っていない。
+
+    直し方は `thumb.faces[].bias` を 0.34 から下げる（被写体が外へ寄る）。
+    **`x` は動かさないこと。** 顔の位置を自動で当てようとすると、2人写っている
+    フレームで別人を拾う。
+    """
+    if not bubbles:
+        return 0, None
+    with_b = render_thumbnail(photo, top, bubbles, bottom, size).convert("RGB")
+    without = render_thumbnail(photo, top, None, bottom, size).convert("RGB")
+
+    dr, dg, db = ImageChops.difference(with_b, without).split()
+    touched = _gt(ImageChops.lighter(ImageChops.lighter(dr, dg), db), TOUCH_DIFF)
+    r, g, b = with_b.split()
+    body = _gt(ImageChops.darker(ImageChops.darker(r, g), b), BODY_LEVEL)
+
+    hit = ImageChops.multiply(ImageChops.multiply(touched, body), _skin_mask(without))
+    return hit.histogram()[255], hit.getbbox()

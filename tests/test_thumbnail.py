@@ -94,3 +94,26 @@ def test_暗い下地の上では明るい赤を使う():
     # 白地の吹き出し用の赤をそのまま幕の上に置くと沈んで読めない
     from scripts.thumbnail import COLORS, ON_DARK
     assert sum(ON_DARK["r"]) > sum(COLORS["r"])
+
+
+SKIN = Image.new("RGB", (1280, 720), (200, 140, 110))
+
+
+def test_吹き出しが無ければ被りは0():
+    from scripts.thumbnail import skin_under_bubbles
+    assert skin_under_bubbles(SKIN, TOP, None, BOTTOM) == (0, None)
+
+
+def test_肌色でない写真なら被りは出ない():
+    from scripts.thumbnail import skin_under_bubbles
+    n, box = skin_under_bubbles(PHOTO, TOP, BUBBLES, BOTTOM)
+    assert n == 0 and box is None
+
+
+def test_肌色の上に吹き出しを置くと数えられる():
+    from scripts.thumbnail import skin_under_bubbles
+    n, box = skin_under_bubbles(SKIN, TOP, BUBBLES, BOTTOM)
+    assert n > 1000
+    x0, y0, x1, y1 = box
+    # 吹き出しは中央の通路に積まれる
+    assert 200 < x0 < 640 < x1 < 1100

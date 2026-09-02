@@ -125,7 +125,8 @@ def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
 
     from PIL import Image
 
-    from scripts.thumbnail import compose_photos, render_thumbnail
+    from scripts.thumbnail import (compose_photos, render_thumbnail,
+                                   skin_under_bubbles)
 
     def grab(at: float, name: str) -> Image.Image:
         p = out / name
@@ -148,6 +149,16 @@ def _thumbnail(recipe: dict, src: Path, out: Path) -> None:
 
     render_thumbnail(photo, thumb.get("top"), thumb.get("bubbles"),
                      thumb.get("bottom")).save(out / "thumb.png")
+
+    # **目視で判定しない。** 2026-09-02 に「見た感じ大丈夫」で通した5本のうち
+    # 4本が実際には吹き出しで顔を隠していた。落とさず警告にとどめるのは、
+    # 肌色判定が木の椅子や肌色の服にも反応するため（人が見て決める）
+    n, box = skin_under_bubbles(photo, thumb.get("top"), thumb.get("bubbles"),
+                                thumb.get("bottom"))
+    if n:
+        print(f"! 吹き出しが顔に被っている: 肌色 {n:,}px"
+              f"（範囲 x={box[0]}..{box[2]} y={box[1]}..{box[3]}）")
+        print("  thumb.faces[].bias を 0.34 から下げること。x は動かさない")
 
 
 def build(recipe_path: Path, dry_run: bool = False,
