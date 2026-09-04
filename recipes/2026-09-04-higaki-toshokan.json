@@ -269,14 +269,14 @@
       {
         "at": 500.0,
         "x": 0.42,
-        "bias": 0.25,
+        "bias": 0.34,
         "crop_top": 0.15,
         "crop_bottom": 0.28
       },
       {
         "at": 468.0,
         "x": 0.54,
-        "bias": 0.25,
+        "bias": 0.34,
         "crop_top": 0.15,
         "crop_bottom": 0.15
       }
