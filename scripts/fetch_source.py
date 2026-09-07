@@ -51,6 +51,12 @@ COMPAT = {
     "cookiesfrombrowser": ("firefox", None, None, None),
 }
 CLIENT = {"player_client": ["web_safari"]}
+
+# 2026-09-07、web_safari が字幕トラックを一切返さなくなった。
+# 取得済みの動画（xtJI21E2-xE）でも automatic_captions が 0 件になる。
+# 媒体URLの取得には web_safari が要るので、字幕だけこのクライアントで引き直す。
+# 実測で tv と web_embedded は 157 トラック（ja / ja-orig を含む）を返した。
+CAPTION_CLIENT = {"player_client": ["tv"]}
 FORMAT = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
 
 PO_TOKEN_SERVER = "http://127.0.0.1:4416"
@@ -94,6 +100,23 @@ def pick_ja_vtt(info: dict) -> tuple[str | None, str | None, str | None]:
     return None, None, None
 
 
+def resolve_ja_captions(info: dict, reextract):
+    """日本語字幕を返す。一次抽出に無ければ reextract() の結果でもう一度探す。
+
+    reextract は字幕の出るクライアントで抽出し直す呼び出し。
+    引き直しに失敗しても「字幕が無い」と同じ扱いにする（呼び出し側が中断する）。
+    """
+    found = pick_ja_vtt(info)
+    if found[0]:
+        return found
+    try:
+        again = reextract()
+    except Exception as e:  # noqa: BLE001  抽出の失敗は「字幕なし」と同じ扱い
+        print(f"! 字幕の引き直しに失敗した: {type(e).__name__}: {e}")
+        return None, None, None
+    return pick_ja_vtt(again or {})
+
+
 def list_channel(limit: int) -> list[dict]:
     """新着一覧（メタのみ）。
 
@@ -122,7 +145,16 @@ def fetch_one(url: str, force: bool = False) -> Path:
             return out
         out.mkdir(parents=True, exist_ok=True)
 
-        sub_url, kind, lang = pick_ja_vtt(info)
+        def _captions_via_fallback() -> dict:
+            print(f"- {info['id']}: 一次抽出に日本語字幕が無い。"
+                  f"{CAPTION_CLIENT['player_client'][0]} で引き直す")
+            o = ydl_opts(skip_download=True)
+            o["extractor_args"]["youtube"]["player_client"] = list(
+                CAPTION_CLIENT["player_client"])
+            with YoutubeDL(o) as y2:
+                return y2.extract_info(url, download=False)
+
+        sub_url, kind, lang = resolve_ja_captions(info, _captions_via_fallback)
         if not sub_url:
             raise SystemExit(
                 f"! {info['id']}: 日本語字幕が無い。切り抜き地点を出せないので中断する")
