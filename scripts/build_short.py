@@ -31,7 +31,8 @@ from scripts.cards import (SHORT_BOTTOM, SHORT_SIZE, SHORT_TOP,  # noqa: E402
 from scripts.fetch_source import source_dir  # noqa: E402
 from scripts.moments import rewind_to_topic_head  # noqa: E402
 from scripts.recipe import (build_caption, build_description,  # noqa: E402
-                            validate, validate_short)
+                            short_dirname, shorts_of, validate,
+                            validate_short)
 from scripts.subtitles import (burn_plan, risky_lines,  # noqa: E402
                                unused_fixes)
 
@@ -52,16 +53,18 @@ def load_cues(src_dir: Path) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def plan_span(recipe: dict, cues: list[dict]) -> tuple[float, float, dict]:
+def plan_span(recipe: dict, cues: list[dict],
+              index: int = 0) -> tuple[float, float, dict]:
     """実際にビルドする区間と、巻き戻しの着地点を返す。"""
-    short = recipe["short"]
+    short = shorts_of(recipe)[index]
     landed = rewind_to_topic_head(short["start"], cues)
     return landed["start"], short["end"], landed
 
 
-def preflight(recipe: dict, src_dir: Path, cues: list[dict]) -> list[str]:
+def preflight(recipe: dict, src_dir: Path, cues: list[dict],
+              index: int = 0) -> list[str]:
     validate(recipe)
-    for w in validate_short(recipe, cues or None):
+    for w in validate_short(recipe, cues or None, index=index):
         print(f"! {w}")
 
     missing = []
@@ -74,19 +77,21 @@ def preflight(recipe: dict, src_dir: Path, cues: list[dict]) -> list[str]:
     meta_path = src_dir / "meta.json"
     if meta_path.exists():
         dur = json.loads(meta_path.read_text(encoding="utf-8")).get("duration_sec")
-        if dur and recipe["short"]["end"] > dur:
+        end = shorts_of(recipe)[index]["end"]
+        if dur and end > dur:
             missing.append(
-                f"short.end={recipe['short']['end']} が元動画の尺 {dur} を超えている")
+                f"short.end={end} が元動画の尺 {dur} を超えている")
     return missing
 
 
 def _report(recipe: dict, start: float, end: float, landed: dict,
-            plan: list[dict], cues: list[dict]) -> None:
+            plan: list[dict], cues: list[dict], index: int = 0) -> None:
     """--dry-run と本ビルドの両方で出す。**自動の行き過ぎを目で止めるため。**"""
     print(f"  切り出し {start:.1f}s - {end:.1f}s（{end - start:.1f}s）")
-    if landed["start"] < recipe["short"]["start"]:
-        print(f"  巻き戻し {recipe['short']['start']:.1f} → {start:.1f}"
-              f"（-{recipe['short']['start'] - start:.1f}s）"
+    asked = shorts_of(recipe)[index]["start"]
+    if landed["start"] < asked:
+        print(f"  巻き戻し {asked:.1f} → {start:.1f}"
+              f"（-{asked - start:.1f}s）"
               f"[{landed['kind']}] {landed['line'][:44]}")
     print(f"  字幕 {len(plan)}枚")
     for p in plan:
@@ -123,25 +128,26 @@ def video_filter(n_captions: int) -> str:
     return ";".join(parts), vh
 
 
-def build(recipe_path: Path, dry_run: bool = False) -> Path:
+def build(recipe_path: Path, dry_run: bool = False, index: int = 0) -> Path:
     recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
     src = source_dir(recipe["source_video_id"])
     cues = load_cues(src)
 
-    missing = preflight(recipe, src, cues)
+    missing = preflight(recipe, src, cues, index=index)
     if missing:
         for m in missing:
             print(f"! {m}")
         raise SystemExit("素材が足りないので中断する")
 
-    start, end, landed = plan_span(recipe, cues)
+    start, end, landed = plan_span(recipe, cues, index=index)
     plan = burn_plan(cues, start, end, fixes=recipe.get("fixes"))
     length = end - start
-    out = WORK / f"{recipe['id']}-short"
+    name = short_dirname(recipe["id"], index)
+    out = WORK / name
 
-    print(f"[{'dry-run' if dry_run else 'build'}] {recipe['id']}-short")
-    _report(recipe, start, end, landed, plan, cues)
-    print(f"  フック: {recipe['short']['hook'][:44]}")
+    print(f"[{'dry-run' if dry_run else 'build'}] {name}")
+    _report(recipe, start, end, landed, plan, cues, index=index)
+    print(f"  フック: {shorts_of(recipe)[index]['hook'][:44]}")
     if dry_run:
         return out
 
@@ -187,10 +193,11 @@ def build(recipe_path: Path, dry_run: bool = False) -> Path:
 
     (out / "description.txt").write_text(build_description(recipe), encoding="utf-8")
     # TikTok へは手で投稿する。貼り付けるテキストをここで出しておく
-    (out / "caption.txt").write_text(build_caption(recipe), encoding="utf-8")
-    short = recipe["short"]
+    (out / "caption.txt").write_text(build_caption(recipe, index=index),
+                                     encoding="utf-8")
+    short = shorts_of(recipe)[index]
     (out / "meta.json").write_text(json.dumps({
-        "id": f"{recipe['id']}-short",
+        "id": name,
         "title": (short.get("title") or short["hook"])[:100],
         # #Shorts が無いと縦型でもショート棚に乗らないことがある
         "tags": (recipe.get("tags") or []) + ["Shorts"],
@@ -209,8 +216,10 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("recipe", type=Path)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--index", type=int, default=0,
+                    help="shorts の何本目か（0 起点。既定 0）")
     a = ap.parse_args()
-    build(a.recipe, a.dry_run)
+    build(a.recipe, a.dry_run, index=a.index)
 
 
 if __name__ == "__main__":

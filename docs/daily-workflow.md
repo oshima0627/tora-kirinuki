@@ -333,7 +333,18 @@ python scripts/upload_youtube.py work/<id>-short --publish
 | 3日目 | C | C-1 | B-2 |
 
 **つまり1本の長尺につきショートは2本要ります。** 1本しか作っていないと
-2本目の枠が埋まりません。`recipes/<id>.json` の `shorts` に2つ目を書きます。
+2本目の枠が埋まりません。`recipes/<id>.json` の `shorts` に**配列で2区間**書き、
+`--index` でどちらを作るか選びます（0起点。既定は0）。
+
+```bash
+python scripts/build_short.py recipes/<id>.json               # 1本目 → work/<id>-short
+python scripts/build_short.py recipes/<id>.json --index 1     # 2本目 → work/<id>-short2
+```
+
+`shorts` を書かず従来どおり `short`（単数）1つだけでも動きます（既存レシピはそのまま）。
+
+**2026-09-07 まで、この `shorts` はドキュメントにあるだけでコードに無く、
+`short`（単数）しか読んでいませんでした。** 実装したのはこの日です。
 
 **サムネイルの事前確認は不要です**（2026-08-20 に変更）。ビルド時の目視確認は
 引き続き行いますが、公開前に承認を取る必要はありません。
