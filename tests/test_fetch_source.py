@@ -57,3 +57,36 @@ def test_引き直しが失敗しても落ちない():
         raise RuntimeError("抽出に失敗")
 
     assert resolve_ja_captions({}, 引き直し) == (None, None, None)
+
+
+# 2026-09-07: tv クライアントの automatic_captions では ja が機械翻訳、
+# ja-orig が本物のASRだった。ja を先に採ると「150万ドル」「タイガース」のような
+# 英語往復訳が入り、金額と固有名詞が全部壊れる。自動生成は ja-orig を優先する。
+def test_自動生成ではja_origをjaより優先する():
+    info = {"automatic_captions": {
+        "ja": [{"ext": "vtt", "url": "翻訳"}],
+        "ja-orig": [{"ext": "vtt", "url": "原文"}],
+    }}
+    assert pick_ja_vtt(info) == ("原文", "auto", "ja-orig")
+
+
+def test_自動生成にja_origが無ければjaを使う():
+    info = {"automatic_captions": {"ja": [{"ext": "vtt", "url": "翻訳しかない"}]}}
+    assert pick_ja_vtt(info) == ("翻訳しかない", "auto", "ja")
+
+
+def test_手動字幕はjaを優先する():
+    # 手動字幕は人が書いた日本語なので ja でよい
+    info = {"subtitles": {
+        "ja": [{"ext": "vtt", "url": "手動ja"}],
+        "ja-orig": [{"ext": "vtt", "url": "手動orig"}],
+    }}
+    assert pick_ja_vtt(info) == ("手動ja", "manual", "ja")
+
+
+def test_手動jaは自動のja_origより優先される():
+    info = {
+        "subtitles": {"ja": [{"ext": "vtt", "url": "手動"}]},
+        "automatic_captions": {"ja-orig": [{"ext": "vtt", "url": "自動"}]},
+    }
+    assert pick_ja_vtt(info) == ("手動", "manual", "ja")
