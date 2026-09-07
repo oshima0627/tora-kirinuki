@@ -242,7 +242,7 @@
     "at": 1218.0,
     "x": 0.7,
     "bias": 0.3,
-    "crop_top": 0.12,
+    "crop_top": 0.2,
     "crop_bottom": 0.22
    }
   ],
