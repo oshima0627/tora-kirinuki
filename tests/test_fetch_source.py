@@ -26,3 +26,34 @@ def test_vtt以外は選ばない():
 
 def test_日本語字幕が無ければNoneを返す():
     assert pick_ja_vtt({"subtitles": {"en": [{"ext": "vtt", "url": "x"}]}}) == (None, None, None)
+
+
+# 2026-09-07: web_safari が字幕トラックを一切返さなくなった（既存の取得済み動画でも 0 件）。
+# 媒体URLの取得には web_safari が要るので、字幕だけ別クライアントで引き直す。
+from scripts.fetch_source import resolve_ja_captions
+
+
+def test_一次抽出に日本語字幕があれば引き直さない():
+    info = {"automatic_captions": {"ja": [{"ext": "vtt", "url": "auto-url"}]}}
+
+    def 引き直し():
+        raise AssertionError("呼ばれてはいけない")
+
+    assert resolve_ja_captions(info, 引き直し) == ("auto-url", "auto", "ja")
+
+
+def test_一次抽出に字幕が無ければ別クライアントで引き直す():
+    info = {"automatic_captions": {}}
+    fallback = {"automatic_captions": {"ja": [{"ext": "vtt", "url": "tv-url"}]}}
+    assert resolve_ja_captions(info, lambda: fallback) == ("tv-url", "auto", "ja")
+
+
+def test_引き直しても無ければNoneを返す():
+    assert resolve_ja_captions({}, lambda: {}) == (None, None, None)
+
+
+def test_引き直しが失敗しても落ちない():
+    def 引き直し():
+        raise RuntimeError("抽出に失敗")
+
+    assert resolve_ja_captions({}, 引き直し) == (None, None, None)
