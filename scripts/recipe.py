@@ -64,7 +64,28 @@ SHORT_MIN_SEC = 65.0
 SHORT_RECOMMENDED_SEC = 73.0
 
 
-def validate_short(recipe: dict, cues: list[dict] | None = None) -> list[str]:
+def shorts_of(recipe: dict) -> list[dict]:
+    """このレシピのショートの一覧。
+
+    **1本の長尺につきショートは2本要る**（docs/daily-workflow.md）。
+    ショート2本目は親の長尺が公開済みのものから出すので、同じレシピに
+    2区間を書いておく。`shorts`（複数）があればそれを、無ければ従来どおり
+    `short`（単数）を1本だけ返す。既存レシピはそのまま動く。
+    """
+    shorts = recipe.get("shorts")
+    if shorts:
+        return list(shorts)
+    short = recipe.get("short")
+    return [short] if short else []
+
+
+def short_dirname(recipe_id: str, index: int) -> str:
+    """work/ の出力先。1本目は従来どおり -short（既存の台帳と揃える）。"""
+    return f"{recipe_id}-short" if index == 0 else f"{recipe_id}-short{index + 1}"
+
+
+def validate_short(recipe: dict, cues: list[dict] | None = None,
+                   index: int = 0) -> list[str]:
     """ショートの区間を検証する。長尺と同じレシピから作るので共通項目は validate に任せる。
 
     cues（元動画の字幕）を渡すと、**実際にビルドされる区間**で検証する。
@@ -73,9 +94,13 @@ def validate_short(recipe: dict, cues: list[dict] | None = None) -> list[str]:
 
     落とすべきでない指摘は警告の一覧として返す。
     """
-    short = recipe.get("short")
-    if not short:
+    shorts = shorts_of(recipe)
+    if not shorts:
         raise ValueError("レシピに short がない。ショートを作るには short が要る")
+    if index >= len(shorts):
+        raise ValueError(
+            f"short の {index + 1} 本目が無い（このレシピには {len(shorts)} 本）")
+    short = shorts[index]
 
     start, end = short.get("start"), short.get("end")
     if start is None or end is None or end <= start:
@@ -136,14 +161,15 @@ def build_description(recipe: dict) -> str:
     return "\n".join(parts).strip() + "\n"
 
 
-def build_caption(recipe: dict) -> str:
+def build_caption(recipe: dict, index: int = 0) -> str:
     """TikTok へ手で投稿するときに貼り付けるテキスト。
 
     **概要欄（build_description）は YouTube 用の長文なので使わない。**
     TikTok の URL はリンクにならないが、元動画へのリンクは権利者ガイドラインの
     必須条件なので、意図として必ず書く。
     """
-    short = recipe.get("short") or {}
+    shorts = shorts_of(recipe)
+    short = shorts[index] if index < len(shorts) else {}
     head = (short.get("title") or short.get("hook") or recipe["title"]).strip()
     tags = " ".join(f"#{t}" for t in (recipe.get("tags") or []))
     parts = [head, "", *_source_lines(recipe), "", CREDIT]
