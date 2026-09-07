@@ -89,11 +89,23 @@ def source_dir(video_id: str) -> Path:
     return WORK / video_id
 
 
+# 自動生成の ja は「日本語ASR → 英語 → 日本語」の往復訳で、
+# 2026-09-07 の実測で「150万円」が「150万ドル」、「虎」が「タイガース」になっていた。
+# 金額と固有名詞が命なので、自動生成では原文の ja-orig を先に採る。
+# 手動字幕は人が書いた日本語なので ja のままでよい。
+AUTO_LANG_ORDER = ("ja-orig", "ja", "ja-JP")
+MANUAL_LANG_ORDER = ("ja", "ja-orig", "ja-JP")
+
+
 def pick_ja_vtt(info: dict) -> tuple[str | None, str | None, str | None]:
-    """日本語字幕のVTT URLを返す。手動字幕を優先し、無ければ自動生成。"""
-    for store, kind in ((info.get("subtitles") or {}, "manual"),
-                        (info.get("automatic_captions") or {}, "auto")):
-        for lang in ("ja", "ja-orig", "ja-JP"):
+    """日本語字幕のVTT URLを返す。手動字幕を優先し、無ければ自動生成。
+
+    自動生成は ja より ja-orig（原文のASR）を優先する。上の注記を参照。
+    """
+    for store, kind, order in (
+            (info.get("subtitles") or {}, "manual", MANUAL_LANG_ORDER),
+            (info.get("automatic_captions") or {}, "auto", AUTO_LANG_ORDER)):
+        for lang in order:
             for track in store.get(lang) or []:
                 if track.get("ext") == "vtt":
                     return track["url"], kind, lang
@@ -134,13 +146,13 @@ def list_channel(limit: int) -> list[dict]:
             for e in (info.get("entries") or [])]
 
 
-def fetch_one(url: str, force: bool = False) -> Path:
+def fetch_one(url: str, force: bool = False, subs_only: bool = False) -> Path:
     from yt_dlp import YoutubeDL
 
     with YoutubeDL(ydl_opts(skip_download=True)) as ydl:
         info = ydl.extract_info(url, download=False)
         out = source_dir(info["id"])
-        if (out / "source.mp4").exists() and not force:
+        if (out / "source.mp4").exists() and not (force or subs_only):
             print(f"- {info['id']} は取得済み（--force で再取得）")
             return out
         out.mkdir(parents=True, exist_ok=True)
@@ -177,6 +189,10 @@ def fetch_one(url: str, force: bool = False) -> Path:
             timespec="seconds"),
     }, ensure_ascii=False, indent=1), encoding="utf-8")
 
+    if subs_only:
+        print(f"✓ {info['id']}  字幕だけ取り直した（{len(cues)}行 / {lang}）")
+        return out
+
     with YoutubeDL(ydl_opts(format=FORMAT, merge_output_format="mp4",
                             outtmpl=str(out / "source.%(ext)s"))) as ydl:
         ydl.download([url])
@@ -191,6 +207,8 @@ def main() -> None:
     ap.add_argument("--latest", type=int)
     ap.add_argument("--list", action="store_true", help="取得せず一覧だけ表示")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--subs-only", action="store_true",
+                    help="source.mp4 はそのままで subs.json / meta.json だけ取り直す")
     a = ap.parse_args()
 
     urls = list(a.urls)
@@ -205,7 +223,7 @@ def main() -> None:
         raise SystemExit("URL か --latest を指定してください")
     check_pot_server()
     for u in urls:
-        fetch_one(u, a.force)
+        fetch_one(u, a.force, subs_only=a.subs_only)
 
 
 if __name__ == "__main__":
