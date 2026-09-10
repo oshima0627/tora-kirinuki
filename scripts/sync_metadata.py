@@ -23,7 +23,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.recipe import build_description, validate  # noqa: E402
+from scripts.recipe import (build_description, short_dirname,  # noqa: E402
+                            shorts_of, validate)
 from scripts.upload_youtube import (PUBLISHED, get_service,  # noqa: E402
                                     with_long_form_link)
 
@@ -38,9 +39,11 @@ def targets(recipe: dict) -> list[tuple[str, str, list[str]]]:
     """
     tags = recipe.get("tags") or []
     out = [(recipe["id"], recipe["title"], tags)]
-    short = recipe.get("short")
-    if short:
-        out.append((f"{recipe['id']}-short",
+    # **2026-09-10 まで `recipe.get("short")` を直接読んでいた。**
+    # `shorts`（配列）で2本目以降を書いたレシピは、ショートが1本も
+    # 同期されなかった。ショート2本目は 2026-09-07 に実装した経路
+    for i, short in enumerate(shorts_of(recipe)):
+        out.append((short_dirname(recipe["id"], i),
                     short.get("title") or short["hook"],
                     tags + ["Shorts"]))
     return out

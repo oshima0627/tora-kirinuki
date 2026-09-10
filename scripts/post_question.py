@@ -106,9 +106,20 @@ def main() -> None:
             body={"snippet": {"videoId": vid,
                               "topLevelComment": {
                                   "snippet": {"textOriginal": q}}}}).execute()
-        got = already_posted(service, vid, channel_id)
+        # **直後に読み直すと、まだ出てこない。** 2026-09-10 に実測（None が返り、
+        # 投稿自体は成功していた）。`channels.update` と同じ挙動
+        import time
+
+        got = None
+        for _ in range(5):
+            time.sleep(2)
+            got = already_posted(service, vid, channel_id)
+            if got == q:
+                break
         if got != q:
-            raise SystemExit(f"! {vid} に投稿したが読み直せない（{got!r}）")
+            raise SystemExit(
+                f"! {vid} に投稿したが10秒待っても読み直せない（{got!r}）。"
+                f"{url} を開いて確認すること")
         print(f"  ✓ {vid} に投稿した  {url}")
         print("    ★Studio で手でピン留めすること（API にピン留めは無い）")
 

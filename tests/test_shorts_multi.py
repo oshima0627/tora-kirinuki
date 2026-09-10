@@ -64,3 +64,34 @@ def test_build_captionはindexで対象を選ぶ():
     }
     assert build_caption(r, index=0).startswith("一本目のフック")
     assert build_caption(r, index=1).startswith("二本目のフック")
+
+
+def test_2本目の見出しは2本目のものを使う(tmp_path, monkeypatch):
+    """`build_short.py` が `recipe["short"]` を直接読んでいた（2026-09-10 に発見）。
+
+    **`shorts`（配列）だけのレシピは KeyError、両方あるレシピは
+    2本目に1本目の見出しが焼かれる。** 2本目は 2026-09-07 に実装して
+    以降一度も動かしていない経路だった。
+    """
+    from scripts.build_short import head_of
+
+    r = {"shorts": [{"start": 0.0, "end": 55.0, "hook": "1本目",
+                     "head": [[{"t": "1本目の見出し", "c": "w"}]]},
+                    {"start": 100.0, "end": 155.0, "hook": "2本目",
+                     "head": [[{"t": "2本目の見出し", "c": "w"}]]}]}
+    assert head_of(r, 0)[0][0]["t"] == "1本目の見出し"
+    assert head_of(r, 1)[0][0]["t"] == "2本目の見出し"
+
+
+def test_shortが単数でも見出しを読める():
+    from scripts.build_short import head_of
+
+    r = {"short": {"start": 0.0, "end": 55.0, "hook": "h",
+                   "head": [[{"t": "見出し", "c": "w"}]]}}
+    assert head_of(r, 0)[0][0]["t"] == "見出し"
+
+
+def test_見出しが無くても落ちない():
+    from scripts.build_short import head_of
+
+    assert head_of({"short": {"start": 0.0, "end": 55.0, "hook": "h"}}, 0) is None

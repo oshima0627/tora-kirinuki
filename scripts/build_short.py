@@ -62,6 +62,18 @@ def plan_span(recipe: dict, cues: list[dict],
     return landed["start"], short["end"], landed
 
 
+def head_of(recipe: dict, index: int = 0):
+    """そのショートの上帯の見出し。
+
+    **2026-09-10 まで `recipe["short"].get("head")` を直接読んでいた。**
+    `shorts`（配列）だけのレシピは KeyError で落ち、`short` と `shorts` の
+    両方があるレシピは **2本目に1本目の見出しが焼かれる**。ショート2本目は
+    2026-09-07 に実装して以降まだ1本も作っていないので、実害は出ていない。
+    """
+    shorts = shorts_of(recipe)
+    return shorts[index].get("head") if index < len(shorts) else None
+
+
 def preflight(recipe: dict, src_dir: Path, cues: list[dict],
               index: int = 0) -> list[str]:
     validate(recipe)
@@ -194,7 +206,7 @@ def build(recipe_path: Path, dry_run: bool = False, index: int = 0) -> Path:
     frame = out / "frame.png"
     # **下帯は字幕に譲る。** レシピの quote（固定引用）は焼かない。
     # 上帯の head が同じことを言っているうえ、固定の台詞は話者を取り違えさせる
-    render_short_frame(recipe["short"].get("head")).save(frame)
+    render_short_frame(head_of(recipe, index)).save(frame)
 
     inputs = ["-i", str(src / "source.mp4"), "-i", str(frame)]
     points = points_of(recipe, index)
