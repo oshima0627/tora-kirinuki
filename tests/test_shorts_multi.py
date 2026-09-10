@@ -46,8 +46,8 @@ def test_validate_shortはindexで対象を選ぶ():
             {"start": 300.0, "end": 310.0, "hook": "短すぎる"},
         ]
     }
-    validate_short(r, None, index=0)          # 70秒なので通る
-    with pytest.raises(ValueError, match="65"):
+    validate_short(r, None, index=0)          # 70秒なので通る（警告は出る）
+    with pytest.raises(ValueError, match="45"):
         validate_short(r, None, index=1)      # 10秒なので落ちる
 
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -120,20 +121,35 @@ def with_long_form_link(meta: dict, description: str) -> str:
     無い。実際に7本ともその状態で公開されていた。
 
     長尺のURLはアップロードするまで決まらないので、ビルド時ではなくここで
-    差し込む。運用手順どおり長尺 → ショートの順に上げれば必ず解決する。
+    差し込む。長尺 → ショートの順に上げれば必ず解決する。
+
+    **2026-09-10 に2つ直した。**
+
+    1. `-short2`（ショート2本目）に長尺リンクが入っていなかった。
+       `endswith("-short")` で見ていたので、2本目が素通りしていた。
+       ショート2本目は 2026-09-07 に実装したばかりで、まだ1本も上げていない。
+    2. 長尺が無いときに `die` していたのをやめた。**長尺の毎日制作をやめた**
+       ので（8/20以降の22本は外れ値2本を除くと20本で91再生＝1本4.6）、
+       このままだとショートが1本も上がらなくなる。
+
+    **代わりの導線は概要欄には作らない。** 概要欄のリンクは実測で
+    82,514再生中10再生（`SHORTS_CONTENT_LINKS`）しか動いていない。
+    回遊は画面の中（論点カード・トレーラー）で作る
+    （docs/2026-09-10-analytics.md）。
     """
     vid_id = meta["id"]
-    if not vid_id.endswith("-short"):
+    base = re.sub(r"-short\d*$", "", vid_id)
+    if base == vid_id:                     # 長尺そのもの
         return description
     if FUNNEL_HEAD in description:
         return description
 
-    base = vid_id[: -len("-short")]
     data = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))
     entry = data["videos"].get(base)
     if not entry:
-        die(f"長尺 {base} が未アップロードです。"
-            f"ショートは長尺へのリンクを持つので、先に長尺を上げてください")
+        print(f"  長尺 {base} は台帳に無いので、この行き先は入れません"
+              "（元動画のリンクはそのまま残ります）")
+        return description
 
     # 元動画URL（MCNの条件で冒頭に置く）の直後。本文より前に出す
     lines = description.split("\n")

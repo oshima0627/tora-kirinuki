@@ -11,8 +11,8 @@ QUOTE = [[{"t": "倍にして返してもらおう", "c": "r"}]]
 
 def with_short(**over) -> dict:
     r = base()
-    # 既定は窓（65〜73秒）の中。下限を割ると validate_short が落ちる
-    r["short"] = {"start": 2300.0, "end": 2368.0,
+    # 既定は窓（50〜58秒）の中。下限を割ると validate_short が落ちる
+    r["short"] = {"start": 2300.0, "end": 2355.0,
                   "hook": "粗利は1棟20万円。それでも満額200万円",
                   "head": HEAD, "quote": QUOTE}
     r["short"].update(over)
@@ -44,16 +44,18 @@ def test_3分を超えたら落ちる():
         validate_short(with_short(start=0.0, end=181.0))
 
 
-def test_65秒未満は落ちる():
-    # TikTok の収益化対象は1分以上。実測誤差の余裕を含めて65秒を下限にしている
-    with pytest.raises(ValueError, match="65"):
-        validate_short(with_short(start=2300.0, end=2364.9))
+def test_45秒未満は落ちる():
+    # ここを割ると令和の虎の「問い→答え」が1往復も入らない
+    with pytest.raises(ValueError, match="45"):
+        validate_short(with_short(start=2300.0, end=2344.9))
 
 
-def test_巻き戻して65秒に届けば通る():
-    # 尺はレシピの値ではなく巻き戻し後の長さで測る
+def test_巻き戻して窓に入れば尺の警告は出ない():
+    # 尺はレシピの値ではなく巻き戻し後の長さ（60-5=55秒）で測る。
+    # 巻き戻し自体の警告は別に出るので、尺の警告が無いことだけを見る
     cues = cue_list((0.0, "前の話が終わりました。"), (5.0, "ここから話が始まります。"))
-    validate_short(with_short(start=12.0, end=70.0), cues)
+    warnings = validate_short(with_short(start=12.0, end=60.0), cues)
+    assert not any("50〜58秒" in w for w in warnings)
 
 
 def test_縦型フレームは1080x1920で返る():
@@ -90,30 +92,44 @@ def test_何も指定しなくても落ちない():
     assert render_short_frame().size == (1080, 1920)
 
 
-def test_推奨より長いショートは警告になる():
-    # 落とさない。尺は素材で決まることもある。ただし黙って通すと
-    # 132秒のショート（実績0〜2再生）がまた出る
+def test_窓より長いショートは警告になる():
+    # 落とさない。尺は素材で決まることもあるし、既存レシピをビルドし直せなくなる。
+    # ただし黙って通すと、実視聴秒が増えないまま平均視聴率だけ下がる本がまた出る
     from scripts.recipe import validate_short
     r = {"short": {"start": 0.0, "end": 130.0, "hook": "h"}}
     warnings = validate_short(r)
     assert any("完走されにくい" in w for w in warnings)
 
 
-def test_73秒を超えたら警告になる():
-    # 実測の高再生ゾーンは67〜73秒。103秒・132秒は0〜2再生だった
+def test_58秒を超えたら警告になる():
+    # 実測（n=19）: 実視聴秒は尺と無相関で中央値39.5秒。尺×平均視聴率 -0.53
     from scripts.recipe import validate_short
-    warnings = validate_short({"short": {"start": 0.0, "end": 74.0, "hook": "h"}})
+    warnings = validate_short({"short": {"start": 0.0, "end": 59.0, "hook": "h"}})
     assert any("完走されにくい" in w for w in warnings)
 
 
-def test_73秒ちょうどは警告しない():
+def test_これまでの70秒は警告になる():
+    # **9/7〜9/12 の6本は全部 69.5〜74.6秒だった。** 同じことが起きたら気づける
     from scripts.recipe import validate_short
-    assert validate_short({"short": {"start": 0.0, "end": 73.0, "hook": "h"}}) == []
+    warnings = validate_short({"short": {"start": 0.0, "end": 70.9, "hook": "h"}})
+    assert any("50〜58秒" in w for w in warnings)
 
 
-def test_推奨に収まれば警告は出ない():
+def test_58秒ちょうどは警告しない():
     from scripts.recipe import validate_short
-    assert validate_short({"short": {"start": 0.0, "end": 65.0, "hook": "h"}}) == []
+    assert validate_short({"short": {"start": 0.0, "end": 58.0, "hook": "h"}}) == []
+
+
+def test_50秒ちょうどは警告しない():
+    from scripts.recipe import validate_short
+    assert validate_short({"short": {"start": 0.0, "end": 50.0, "hook": "h"}}) == []
+
+
+def test_窓より短ければ警告になる():
+    # 45秒は通すが、狙いは50〜58秒。黙って短いほうに寄らないようにする
+    from scripts.recipe import validate_short
+    warnings = validate_short({"short": {"start": 0.0, "end": 47.0, "hook": "h"}})
+    assert any("短い" in w for w in warnings)
 
 
 def cue_list(*pairs) -> list[dict]:
@@ -139,9 +155,9 @@ def test_巻き戻した結果3分を超えたら落ちる():
 
 
 def test_巻き戻したぶんも警告の尺に含める():
-    # 65秒のつもりが巻き戻しで76秒になることがある。黙って通さない
+    # 55秒のつもりが巻き戻しで66秒になることがある。黙って通さない
     cues = cue_list((0.0, "前の話が終わりました。"), (5.0, "ここから話が始まります。"))
-    warnings = validate_short(with_short(start=16.0, end=81.0), cues)
+    warnings = validate_short(with_short(start=16.0, end=71.0), cues)
     assert any("完走されにくい" in w for w in warnings)
 
 

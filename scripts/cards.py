@@ -303,3 +303,80 @@ def render_short_caption(text: str,
         _short_row(d, [{"t": ln, "c": "w"}], w // 2, y, fs)
         y += lh
     return img
+
+
+# 縦型の論点カード（図解）。
+#
+# **2026-09-10 に足した。** チャンネル名は「図解でわかる令和の虎」なのに、
+# 論点カードは build_clip.py にしか無く、ショートには1枚も入っていなかった。
+# 図解は286再生の長尺の中にあり、91,469再生のショートには無い
+# （docs/2026-09-10-analytics.md）。
+#
+# 置き場所は**上帯**。理由は2つ。
+#   1. 下帯は字幕の場所。ここを覆うとショートの主役が消える
+#   2. 中央は映像。覆うと誰が喋っているか分からなくなる
+# 上帯の見出し（head）は7秒までに読み終わっている。**そこを論点カードに
+# 差し替えると、落ち始める7〜10秒に2つ目の情報が出る。**
+SHORT_POINT_MAX_LINES = 4
+SHORT_POINT_SIZE = int(SHORT_SIZE[1] * 0.040)
+SHORT_POINT_MIN = 38
+
+
+# 最終行に1文字だけ残ると読みにくい（「儲かるの／か」）。文字を落とすわけには
+# いかないので、字を小さくして詰める
+SHORT_POINT_MIN_TAIL = 2
+
+
+def _short_point_layout(text: str) -> tuple[list[str], int]:
+    """収まるところまで小さくして (行, フォントサイズ) を返す。**文字は落とさない。**"""
+    text = (text or "").strip()
+    if not text:
+        return [], SHORT_POINT_SIZE
+    d = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    avail = int(SHORT_SIZE[0] * 0.86)
+    fallback = None
+    size = SHORT_POINT_SIZE
+    while size > SHORT_POINT_MIN:
+        lines = wrap(d, text, pick_font(size), avail)
+        if len(lines) <= SHORT_POINT_MAX_LINES:
+            if len(lines) < 2 or len(lines[-1]) >= SHORT_POINT_MIN_TAIL:
+                return lines, size
+            # 行数は収まっているが最終行が孤立している。**これは詰めきれなかった
+            # ときの逃げ道として取っておき、まず小さくして解消を試す**
+            if fallback is None:
+                fallback = (lines, size)
+        size -= 3
+    if fallback is not None:
+        return fallback
+    return wrap(d, text, pick_font(SHORT_POINT_MIN), avail), SHORT_POINT_MIN
+
+
+def short_point_lines(text: str) -> list[str]:
+    return _short_point_layout(text)[0]
+
+
+def render_short_point(text: str,
+                       size: tuple[int, int] = SHORT_SIZE) -> Image.Image:
+    """上帯に論点カードを描いた透過画像を返す。映像の上に時間指定で重ねる。
+
+    **上帯だけを塗る。** 映像の穴と下帯（字幕）は透過のまま残す。
+    """
+    w, h = size
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    lines, fs = _short_point_layout(text)
+    if not lines:
+        return img
+
+    d = ImageDraw.Draw(img)
+    band_h = int(h * SHORT_TOP)
+    # 長尺の論点カードと同じ地色。黒帯のままだと見出しと区別がつかない
+    d.rectangle([0, 0, w, band_h], fill=BG_TOP + (255,))
+    d.rectangle([0, 0, int(w * 0.016), band_h], fill=RED + (255,))
+
+    lh = int(fs * 1.34)
+    m = int(w * 0.07)
+    y = (band_h - lh * len(lines)) // 2 + int(fs * 0.2)
+    for ln in lines:
+        d.text((m, y), ln, font=pick_font(fs), fill=INK + (255,))
+        y += lh
+    return img

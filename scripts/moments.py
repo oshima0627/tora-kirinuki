@@ -254,3 +254,60 @@ def rewind_to_topic_head(start: float, cues: list[dict],
         return {"start": cues[boundary]["t"], "kind": "境界",
                 "line": cues[boundary]["line"]}
     return {"start": start, "kind": "そのまま", "line": ""}
+
+
+# ---------------------------------------------------------------------------
+# ショートの区間を総当たりで探す
+#
+# **2026-09-10 に HANDOFF.md の手書きスニペットから実装に移した。**
+# スニペットは終端の窓が `t+65 <= x <= t+73` の直書きで、**9/7〜9/12 の
+# 6本すべてが 69.5〜74.6秒**になった直接の原因だった。実測（n=19）では
+# 実視聴秒は尺と無相関（-0.02）で中央値39.5秒、尺×平均視聴率は -0.53。
+# 窓を引数にして、変えたときに答え合わせできる形にしてある。
+# （docs/2026-09-10-analytics.md）
+
+def short_candidates(cues: list[dict], lo: float, hi: float,
+                     min_sec: float, max_sec: float) -> list[dict]:
+    """[lo, hi] の中で、文頭に着地する開始点と、窓に入る尺の一覧を返す。
+
+    **巻き戻しが1秒でも起きる開始点は候補にしない。** 巻き戻すということは
+    そこが文の途中で、前提が入っていないということ。区間を選び直したほうがよい。
+    """
+    out = []
+    for c in cues:
+        t = c["t"]
+        if not (lo <= t <= hi):
+            continue
+        landed = rewind_to_topic_head(t, cues)
+        if landed["kind"] != "文頭" or abs(landed["start"] - t) > 1e-6:
+            continue
+        lengths = [round(x["t"] - t, 2) for x in cues
+                   if t + min_sec <= x["t"] <= t + max_sec]
+        if not lengths:
+            continue
+        out.append({"start": t, "line": c["line"], "lengths": lengths})
+    return out
+
+
+# 元動画そのものが上下に黒帯を入れている区間がある（番組の煽り差し込み）。
+# 縦型に組むと黒帯がそのまま入る。**目視ではなく端の輝度で測る。**
+# 2026-09-07 に `2TYcrm--MqQ` の 1380〜1406秒 で踏んだ罠
+LETTERBOX_ROWS = 8
+LETTERBOX_DARK = 12.0
+# 暗転のフレームを黒帯と取り違えないための下限。全面が暗いだけなら黒帯ではない
+LETTERBOX_CONTRAST = 24.0
+
+
+def is_letterboxed(image) -> bool:
+    """上下端が黒帯なら True。PIL の Image を受け取る。"""
+    import numpy as np
+
+    a = np.asarray(image.convert("L"), dtype=float)
+    if a.shape[0] < LETTERBOX_ROWS * 3:
+        return False
+    top = a[:LETTERBOX_ROWS, :].mean()
+    bottom = a[-LETTERBOX_ROWS:, :].mean()
+    middle = a[LETTERBOX_ROWS:-LETTERBOX_ROWS, :].mean()
+    # numpy の bool を返すと `is True` が成り立たない。素の bool に戻す
+    return bool(top < LETTERBOX_DARK and bottom < LETTERBOX_DARK
+                and middle - max(top, bottom) > LETTERBOX_CONTRAST)

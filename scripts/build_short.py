@@ -27,11 +27,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.build_clip import probe_duration  # noqa: E402
 from scripts.cards import (SHORT_BOTTOM, SHORT_SIZE, SHORT_TOP,  # noqa: E402
-                           render_short_caption, render_short_frame)
+                           render_short_caption, render_short_frame,
+                           render_short_point)
 from scripts.fetch_source import source_dir  # noqa: E402
 from scripts.moments import rewind_to_topic_head  # noqa: E402
 from scripts.recipe import (build_caption, build_description,  # noqa: E402
-                            short_dirname, shorts_of, validate,
+                            points_of, short_dirname, shorts_of, validate,
                             validate_short)
 from scripts.subtitles import (burn_plan, risky_lines,  # noqa: E402
                                unused_fixes)
@@ -97,6 +98,15 @@ def _report(recipe: dict, start: float, end: float, landed: dict,
     for p in plan:
         print(f"    {p['start']:6.2f}-{p['end']:6.2f}  {p['text']}")
 
+    points = points_of(recipe, index)
+    if points:
+        print(f"  論点カード {len(points)}枚")
+        for pt in points:
+            print(f"    {float(pt['at']):6.2f}-"
+                  f"{float(pt['at']) + float(pt['sec']):6.2f}  {pt['text']}")
+    else:
+        print("  論点カード なし（short.points で入れられる）")
+
     stale = unused_fixes(cues, start, end, recipe.get("fixes"))
     if stale:
         print(f"  ! recipe.fixes のうち当たらなかったもの: {'/ '.join(stale)}")
@@ -126,6 +136,30 @@ def video_filter(n_captions: int) -> str:
              f"pad={w}:{h}:0:{vy}:color=black[v0]"]
     parts.append("[v0][1:v]overlay=0:0[v1]")          # 黒帯とフック
     return ";".join(parts), vh
+
+
+def filter_chain(plan: list[dict],
+                 points: list[dict]) -> tuple[str, str, int]:
+    """(フィルタ連鎖, 最後のラベル, 画像入力の本数) を返す。
+
+    入力は [0]=映像、[1]=下地、[2..]=字幕、そのあと論点カード。
+
+    **論点カードは字幕より後ろに積む。** 逆にすると、上帯のカードは
+    字幕に隠されないが、順番を間違えたことに気づけない。番号がずれると
+    ffmpeg は黙って別の画像を重ねるので、ここは文字列で検証している。
+    """
+    chain, _ = video_filter(len(plan))
+    for i, p in enumerate(plan):
+        chain += (f";[v{i + 1}][{i + 2}:v]overlay=0:0:"
+                  f"enable='between(t,{p['start']:.3f},{p['end']:.3f})'[v{i + 2}]")
+    n = len(plan)
+    for j, pt in enumerate(points):
+        at = float(pt["at"])
+        chain += (f";[v{n + 1 + j}][{n + 2 + j}:v]overlay=0:0:"
+                  f"enable='between(t,{at:.3f},{at + float(pt['sec']):.3f})'"
+                  f"[v{n + 2 + j}]")
+    total = n + len(points)
+    return chain, f"[v{total + 1}]", total + 1
 
 
 def build(recipe_path: Path, dry_run: bool = False, index: int = 0) -> Path:
@@ -163,14 +197,16 @@ def build(recipe_path: Path, dry_run: bool = False, index: int = 0) -> Path:
     render_short_frame(recipe["short"].get("head")).save(frame)
 
     inputs = ["-i", str(src / "source.mp4"), "-i", str(frame)]
-    chain, _ = video_filter(len(plan))
+    points = points_of(recipe, index)
+    chain, last, _ = filter_chain(plan, points)
     for i, p in enumerate(plan):
         png = caps / f"{i:03d}.png"
         render_short_caption(p["text"]).save(png)
         inputs += ["-i", str(png)]
-        chain += (f";[v{i + 1}][{i + 2}:v]overlay=0:0:"
-                  f"enable='between(t,{p['start']:.3f},{p['end']:.3f})'[v{i + 2}]")
-    last = f"[v{len(plan) + 1}]"
+    for j, pt in enumerate(points):
+        png = caps / f"point_{j:02d}.png"
+        render_short_point(pt["text"]).save(png)
+        inputs += ["-i", str(png)]
 
     video = out / "video.mp4"
     subprocess.run(
