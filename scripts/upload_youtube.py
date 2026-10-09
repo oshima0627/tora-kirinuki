@@ -71,8 +71,13 @@ def get_service():
                 "  Google Cloud で YouTube Data API v3 を有効化し、\n"
                 "  OAuth クライアント（デスクトップアプリ）を作成して配置してください。")
         # 初回のみブラウザが開く。以降は token.json の refresh_token で無人化される
+        # box(Linux) では TORA_OAUTH_PORT（既定 8765）で待ち受け、同意URLを表示する。
+        # 同意は box のブラウザで開く（リダイレクト先 localhost が box を指すため）。
+        import os
+        port = int(os.environ.get("TORA_OAUTH_PORT") or (0 if os.name == "nt" else 8765))
         creds = InstalledAppFlow.from_client_secrets_file(
-            str(CLIENT_SECRET), SCOPES).run_local_server(port=0)
+            str(CLIENT_SECRET), SCOPES).run_local_server(
+                port=port, open_browser=os.name == "nt" or bool(os.environ.get("DISPLAY")))
         TOKEN.write_text(creds.to_json(), encoding="utf-8")
         print(f"✓ 認証情報を保存しました: {TOKEN.name}（コミットしないこと）")
 

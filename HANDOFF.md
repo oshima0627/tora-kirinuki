@@ -1,6 +1,24 @@
 # 引き継ぎ
 
-最終更新: 2026-10-08（JST 14時台）
+最終更新: 2026-10-10（JST 6時台）
+
+## 実行環境（2026-10-10 移行）
+
+**実行環境は box（共有Linux）の `/workspace/tora-kirinuki`。ASUS_i9 は不要。**
+
+```bash
+cd /workspace/tora-kirinuki && git pull && source box_setup.sh   # venv・deno・POトークン(:4416)を用意
+python scripts/audit_account.py                                   # 当日枠の確認
+python scripts/fetch_source.py --latest 25 --list
+python scripts/fetch_source.py https://www.youtube.com/watch?v=<id>
+python scripts/probe_signals.py <id>; python scripts/find_moments.py <id>; python scripts/find_short.py <id> --letterbox
+python scripts/build_clip.py recipes/<recipe>.json; python scripts/build_short.py recipes/<recipe>.json
+python scripts/upload_youtube.py work/<recipe> --schedule <UTC>; python scripts/upload_youtube.py work/<recipe>-short --schedule <UTC>
+```
+
+- box 固有の差分（環境変数で切替、Windows の既定は従来どおり）: フォントは Noto Sans CJK Bold（`TORA_FONT` で上書き）。Cookie は使わない（`TORA_COOKIES=<cookies.txt>` / `TORA_COOKIES_BROWSER`）。プレイヤーは `tv_simply,web_embedded`（`TORA_PLAYER_CLIENT`）、字幕は `web_embedded`（`TORA_CAPTION_CLIENT`）、形式は avc1+m4a（`TORA_FORMAT`。av01/251-1 は途中で403）。JS は deno（~/.deno/bin。node 20 は yt-dlp で unsupported）
+- **OAuth 未整備**: box に client_secret.json / token.json が無い。直下に client_secret.json を置き、box のブラウザで `python scripts/upload_youtube.py --auth-only`（localhost:8765 待ち受け、`TORA_OAUTH_PORT`）→ チャンネルが UCWupHXqf8CTG00c_eoQSw1Q であることを確認。済むまでアップロード・audit は box では不可
+- 2026-10-10 検証: Cookie 無しで OpdXqtb73Uc を 1080p h264 取得（49秒）→ find_short → build_short（仮レシピ /tmp、1080x1920 55.4s、日本語フォント描画を3秒フレームで確認）。pytest 276 passed。OpdXqtb73Uc は取得のみ・未使用（box の work/ に source あり）
 
 ## レシピ方針（日次）
 

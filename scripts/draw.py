@@ -12,10 +12,16 @@ from pathlib import Path
 
 from PIL import ImageDraw, ImageFont
 
+import os
+
+# TORA_FONT で明示できる。無ければ Windows → Linux(box) の順に探す。
 FONT_SANS = [
+    *([os.environ["TORA_FONT"]] if os.environ.get("TORA_FONT") else []),
     r"C:\Windows\Fonts\YuGothB.ttc",
     r"C:\Windows\Fonts\meiryob.ttc",
     r"C:\Windows\Fonts\msgothic.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",  # index0 = JP
+    "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
 ]
 
 RED = (214, 34, 42)

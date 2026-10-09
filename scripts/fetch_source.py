@@ -10,6 +10,7 @@
 """
 
 from __future__ import annotations
+import os
 
 import argparse
 import json
@@ -46,18 +47,56 @@ JA = {"youtube": {"lang": ["ja"]}}
 #
 # web_safari では DASH（映像と音声が別）が出ず、HLSの結合フォーマットだけになる。
 # 1080p は itag 96。fetch は下の FORMAT で明示的に 1080p までに抑える。
+def _cookie_opts() -> dict:
+    """Cookie の取り方。box(Linux) では Firefox が無いので環境変数で切り替える。
+    TORA_COOKIES=<Netscape形式 cookies.txt> が最優先。
+    TORA_COOKIES_BROWSER=firefox|chrome|none（既定: Windows は firefox、他は none）。"""
+    path = os.environ.get("TORA_COOKIES")
+    if path:
+        return {"cookiefile": path}
+    default = "firefox" if os.name == "nt" else "none"
+    browser = os.environ.get("TORA_COOKIES_BROWSER", default)
+    if browser and browser != "none":
+        return {"cookiesfrombrowser": (browser, None, None, None)}
+    return {}
+
+
+def _js_runtimes() -> dict:
+    """box の node 20 は yt-dlp の JS チャレンジで unsupported 扱いになるので、
+    deno（~/.deno/bin/deno）があればそれを優先する。"""
+    import shutil
+    deno = shutil.which("deno") or str(Path.home() / ".deno" / "bin" / "deno")
+    if Path(deno).exists():
+        return {"deno": {"path": deno}, "node": {}}
+    return {"node": {}}
+
+
+def _clients(env: str, default_nt: str, default_other: str) -> list[str]:
+    raw = os.environ.get(env) or (default_nt if os.name == "nt" else default_other)
+    return [c.strip() for c in raw.split(",") if c.strip()]
+
+
 COMPAT = {
-    "js_runtimes": {"node": {}},
-    "cookiesfrombrowser": ("firefox", None, None, None),
+    "js_runtimes": _js_runtimes(),
+    **_cookie_opts(),
 }
-CLIENT = {"player_client": ["web_safari"]}
+# box(Linux, Cookie 無し) では web_safari が SABR で画像しか返さない。
+# 2026-10-10 実測で tv_simply / web_embedded は Cookie 無しで 1080p DASH が通った（mweb は bot 確認で弾かれることがある）。
+# TORA_PLAYER_CLIENT / TORA_CAPTION_CLIENT（カンマ区切り）で上書きできる。
+CLIENT = {"player_client": _clients("TORA_PLAYER_CLIENT", "web_safari",
+                                    "tv_simply,web_embedded")}
 
 # 2026-09-07、web_safari が字幕トラックを一切返さなくなった。
 # 取得済みの動画（xtJI21E2-xE）でも automatic_captions が 0 件になる。
 # 媒体URLの取得には web_safari が要るので、字幕だけこのクライアントで引き直す。
 # 実測で tv と web_embedded は 157 トラック（ja / ja-orig を含む）を返した。
-CAPTION_CLIENT = {"player_client": ["tv"]}
-FORMAT = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
+CAPTION_CLIENT = {"player_client": _clients("TORA_CAPTION_CLIENT", "tv",
+                                            "web_embedded")}
+# box では av01(399) + 251-1 を選ぶと途中で 403 になる（2026-10-10 実測）。
+# avc1 + m4a の DASH は通るので Linux ではそちらを優先する。TORA_FORMAT で上書き可。
+FORMAT = os.environ.get("TORA_FORMAT") or (
+    "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best" if os.name == "nt"
+    else "bv[height<=1080][vcodec^=avc1]+ba[ext=m4a]/b[height<=1080]/best")
 
 PO_TOKEN_SERVER = "http://127.0.0.1:4416"
 PO_TOKEN_SERVER_HINT = (
