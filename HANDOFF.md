@@ -1,6 +1,6 @@
 # 引き継ぎ
 
-最終更新: 2026-10-12（JST 14時台）
+最終更新: 2026-10-13（JST 14時台）
 
 ## 実行環境（2026-10-10 移行）
 
@@ -17,7 +17,7 @@ python scripts/upload_youtube.py work/<recipe> --schedule <UTC>; python scripts/
 ```
 
 - box 固有の差分（環境変数で切替、Windows の既定は従来どおり）: フォントは Noto Sans CJK Bold（`TORA_FONT` で上書き）。Cookie は使わない（`TORA_COOKIES=<cookies.txt>` / `TORA_COOKIES_BROWSER`）。プレイヤーは `tv_simply,web_embedded`（`TORA_PLAYER_CLIENT`）、字幕は `web_embedded`（`TORA_CAPTION_CLIENT`）、形式は avc1+m4a（`TORA_FORMAT`。av01/251-1 は途中で403）。JS は deno（~/.deno/bin。node 20 は yt-dlp で unsupported）
-- **OAuth 整備済み**: 直下の client_secret.json / token.json（このチャンネル専用・commit しない）で audit・アップロードとも box で動く（2026-10-12 確認）。失効したら box のブラウザで `python scripts/upload_youtube.py --auth-only`（localhost:8765、`TORA_OAUTH_PORT`）→ UCWupHXqf8CTG00c_eoQSw1Q を確認
+- **OAuth 整備済み**: 直下の client_secret.json / token.json（このチャンネル専用・commit しない）で audit・アップロードとも box で動く（2026-10-13 確認）。失効したら box のブラウザで `python scripts/upload_youtube.py --auth-only`（localhost:8765、`TORA_OAUTH_PORT`）→ UCWupHXqf8CTG00c_eoQSw1Q を確認
 - 2026-10-10 検証: Cookie 無しで OpdXqtb73Uc を 1080p h264 取得（49秒）→ find_short → build_short（仮レシピ /tmp、1080x1920 55.4s、日本語フォント描画を3秒フレームで確認）。pytest 276 passed。OpdXqtb73Uc は取得のみ・未使用（box の work/ に source あり）
 
 ## レシピ方針（日次）
@@ -28,36 +28,36 @@ python scripts/upload_youtube.py work/<recipe> --schedule <UTC>; python scripts/
 
 **日次運用を2本に分割済み。** (1) 朝の日次制作 毎日14:07・関連動画なし・短長同一18:30同時予約 (2) 夕方の関連動画紐づけ 毎日18:35・当日同士のみ Studio 関連動画。前日付け替えはしない。概要欄フル導線は朝側の補助。
 
-2026-10-12 分を box で新規予約済み。10/4・10/5・10/9・10/10 は ASUS_i9 オフラインのため欠番のまま（後追いで埋めていない）。
+2026-10-13 分を box で新規予約済み。10/4・10/5・10/9・10/10 は ASUS_i9 オフラインのため欠番のまま（後追いで埋めていない）。
 
-## 今回やったこと（2026-10-12、box で実施）
+## 今回やったこと（2026-10-13、box で実施）
 
 | やったこと | 結果 |
 |---|---|
-| YouTube 実状態を確認（audit_account.py、box の token.json） | 当日 10/12 の 18:30 枠は無し。最新は 10/11 短長（tdrGWzcdS5w / D264-X_pNkg） |
-| 未使用レシピ在庫 | 無し → OpdXqtb73Uc の未使用区間から新規作成 |
-| 新規本編 | `OpdXqtb73Uc`（普久原 朝晃／関西版85人目）。取得済み source を再利用 → find_moments / find_short |
-| レシピ作成 | recipes/2026-10-12-fukuhara-keieisha-yamete.json |
-| 長尺ビルド・予約 | dMB5FELv7dI / 13:01（780.0s） / 18:30 JST |
-| ショートビルド・予約 | lqpewdDRZNw / 55.5秒 / 同一 18:30 JST。概要に ▼この回をフルで見る → dMB5FELv7dI |
+| YouTube 実状態を確認（audit_account.py、box の token.json） | 当日 10/13 の 18:30 枠は無し。最新は 10/12 短長（dMB5FELv7dI / lqpewdDRZNw）で公開済み |
+| 未使用レシピ在庫 | 無し → 新規本編を取得 |
+| 新規本編 | `b5IM6DYa-DA`（たくみなかう／社長ファイトクラブ版12人目）。OpdXqtb73Uc 残りは病気言及・尺不足のため見送り |
+| レシピ作成 | recipes/2026-10-13-takuminakau-himodasai.json |
+| 長尺ビルド・予約 | I02o4TFDsdg / 15:04（903.7s） / 18:30 JST |
+| ショートビルド・予約 | crXQB0SkGQw / 53.8秒 / 同一 18:30 JST。概要に ▼この回をフルで見る → I02o4TFDsdg |
 | Studio 関連動画 | 朝ジョブでは触らない（夕方 18:35 ジョブ担当） |
 
 | 公開 | 種別 | 動画ID | 尺 | 素材 |
 |---|---|---|---|---|
-| 10/12 18:30 | 長尺 | dMB5FELv7dI | 13:01 | OpdXqtb73Uc 1960.0-2740.0 |
-| 10/12 18:30 | ショート | lqpewdDRZNw | 55.5s | OpdXqtb73Uc 2394.5-2450.0（レシピ 2398.0 から文頭へ巻き戻し） |
+| 10/13 18:30 | 長尺 | I02o4TFDsdg | 15:04 | b5IM6DYa-DA 346.8-1250.52 |
+| 10/13 18:30 | ショート | crXQB0SkGQw | 53.8s | b5IM6DYa-DA 611.24-665.04（長尺区間内） |
 
-長尺の区間: 熱量を求められる志願者 → 移転すればうまくいく主張 vs 1店舗目と同パターン → 経営センス・人件費家賃の指摘 → 事業再生版に出るべきでは → 必要資金550万と自己資金の食い違い → 借金内訳（銀行・店舗・個人で約2000万近く） → 竹之内社長登場「全部失敗してませんか」 → 「次は100%成功なんて誰が信じる」「経営者やめた方がいい」 → 固定費が払えない・畳む選択肢は考えていない → ラストステートメント（味とリピートへの自信）→ 最終ジャッジ直前で止め。**病気言及帯（26:00-28:00 / 31:40-32:40）と最終判定1枠目の病気コメント（2748付近）は区間外。**
+長尺の区間: 自分が目立ちたい → 起業は後・再起にかけてくれる社長を探しに来た → YouTubeで十分なら起業しなくて良くない？ → 今もファン宅に入り浸り・恋愛感情なし → TikTokライブ月100万 → 「ヒモんなきゃいいじゃん。ダサいよマジで」 → 「ヒモはダサいとは思わない」→「じゃ、犬だ」／ペット → 閲覧50人・有名じゃない指摘 → 自己顕示欲求・自立の意思が見えない → YouTube業界への恩返し・PF案まで。判定は含まない。
 
-ショート: 「何も成功してないのに次移転したら100%」〜「経営者やめた方がいい」〜「普通に働いた方がいい」〜「いいとこ出したら大火傷」「今でも固定費払えない」まで。
+ショート: 「いいよって言ってても…」〜「ダサいよマジで」〜「ヒモはダサいよな」まで。
 
 ## 次にやること
 
-1. **夕方ジョブ（10/12 18:35 JST）** — 当日短長同士（ショート lqpewdDRZNw → 長尺 dMB5FELv7dI）を Studio 関連動画に紐づけ。前日付け替えはしない
-2. **10/13 の日次制作（14:07 JST、box）** — 当日枠が無ければ短長を作り 18:30 JST 同時予約
-3. 在庫（取得済み・未使用区間）: `OpdXqtb73Uc` の最終判定以降（約 2748-末尾。竹之内社長の450万円で不成立とその後の虎同士の口論）。**ただし最終判定1枠目コメントに病気への言及があるので、切るならその一言を避けた区間設計が必要。** 26:00-28:00 と 31:40-32:40 も持病の話なので切らない。100–1188.9 と 1960–2740 は使用済み
-4. 次の新規本編候補（未取得・未使用）: `5s7XkDJBy_M` 与儀・SNS版、`gnRv7TEMx38` 青山・二軍版、`yS7uaXYMbUY` なみえ社長・SNS版（夜職求人。名誉面に注意）、`b5IM6DYa-DA` たくみなかう・社長ファイトクラブ版、`KJSteWkUr90` 田村前編・事業再生版、`oJjxzDAKEnw` 藤田・シン美容版 など。box の work/ には OpdXqtb73Uc の source しか無い
-5. 瀬戸前編 `_I2BzfLSZxs`・カルロス前編 `JGJkr2vm2ic` は使い切り。普久原前半（10/11）と中盤詰め（10/12）も使用済み
+1. **夕方ジョブ（10/13 18:35 JST）** — 当日短長同士（ショート crXQB0SkGQw → 長尺 I02o4TFDsdg）を Studio 関連動画に紐づけ。前日付け替えはしない
+2. **10/14 の日次制作（14:07 JST、box）** — 当日枠が無ければ短長を作り 18:30 JST 同時予約
+3. 在庫（取得済み・未使用区間）: `b5IM6DYa-DA` の後半（約 1348-2247、判定含む候補）。`OpdXqtb73Uc` の最終判定以降（約 2748-末尾）は病気言及あり・慎重に。100–1188.9 と 1960–2740 は使用済み
+4. 次の新規本編候補（未取得・未使用）: `5s7XkDJBy_M` 与儀・SNS版、`gnRv7TEMx38` 青山・二軍版、`yS7uaXYMbUY` なみえ社長・SNS版（夜職求人。名誉面に注意）、`KJSteWkUr90` 田村前編・事業再生版、`oJjxzDAKEnw` 藤田・シン美容版 など。box の work/ には OpdXqtb73Uc と b5IM6DYa-DA の source あり
+5. 瀬戸前編 `_I2BzfLSZxs`・カルロス前編 `JGJkr2vm2ic`・普久原前半/中盤・たくみなかう前半（10/13）は使用済み
 
 ## 触ってはいけないところ
 
@@ -76,18 +76,16 @@ python scripts/upload_youtube.py work/<recipe> --schedule <UTC>; python scripts/
 - **fixes は部分一致置換。** 「原君→三原君」のような訂正は「三原君」を「三三原君」にするので入れない
 - **JGJkr2vm2ic の志願者は白Tシャツの坊主の男性（カルロス）。** 眼鏡にネクタイの男性は進行役。取り違えない
 
-## 検証済みの事実（2026-10-12）
+## 検証済みの事実（2026-10-13）
 
-- API で dMB5FELv7dI / lqpewdDRZNw の publishAt=2026-10-12T09:30:00Z・privacy private・channel UCWupHXqf8CTG00c_eoQSw1Q・defaultLanguage ja を確認。長尺尺 PT13M1S（780.0s）。ショートはローカル 55.5s（タイトルは56秒）
-- ショート概要に ▼この回をフルで見る → dMB5FELv7dI を API で確認
+- API で I02o4TFDsdg / crXQB0SkGQw の publishAt=2026-10-13T09:30:00Z・privacy private・channel UCWupHXqf8CTG00c_eoQSw1Q・defaultLanguage ja を確認。長尺ローカル 903.7s（15:04）。ショートはローカル 53.8s（タイトルは54秒）
+- ショート概要に ▼この回をフルで見る → I02o4TFDsdg を API で確認
 - 台帳 state/published.json に両方を記録（upload 時）
-- ショート 3秒フレーム: head「成功した事業はゼロ／なのに次は100%？」・下帯字幕で確認
+- ショート 3秒フレーム: head「入り浸りを認めた直後／虎「ダサいよマジで」」・下帯字幕で確認
 - 長尺冒頭 3秒: 案件カード表示を確認
-- 病気帯（26:00-28:00 / 31:40-32:40 / 2748付近）は clip 外
 
 ## 未検証のもの
 
-- 店舗の赤字・移転先・借金の内訳・必要資金などの数字と経緯は ASR 字幕由来（概要欄では「本人の発言（自動字幕）」と明記）
-- 「経営者やめた方がいい」の話者名はタイトル・概要では付けていない（焼き込みテロップで虎側と確認）
-- ショート字幕の「1人に目はかかってる」は ASR。映像上は「一人前」等の可能性あり（部分一致 fixes は行跨ぎで未適用）
+- TikTokライブの月収・閲覧数・チャンネル経歴などの数字は ASR 字幕由来（概要欄では「本人の発言（自動字幕）」と明記）
+- 「ダサいよマジで」「じゃ、犬だ」の話者名はタイトル・概要では付けていない（焼き込みテロップで虎側と確認）
 - アップロード直後は processing 中。公開前に processed / succeeded を再確認すること
