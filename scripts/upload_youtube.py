@@ -157,8 +157,15 @@ def with_long_form_link(meta: dict, description: str) -> str:
         return description
 
     # 元動画URL（MCNの条件で冒頭に置く）の直後。本文より前に出す
+    # **1行目に問いが入るようになった（docs/engagement.md）ので、行番号ではなく
+    # 元動画URLの行を探して、その直後に入れる**
     lines = description.split("\n")
-    at = 2 if len(lines) >= 2 else len(lines)
+    src = meta.get("source_url")
+    hit = [i for i, ln in enumerate(lines) if src and ln.strip() == src]
+    if hit:
+        at = hit[0] + 1
+    else:
+        at = 2 if len(lines) >= 2 else len(lines)
     lines[at:at] = ["", FUNNEL_HEAD, entry["url"]]
     return "\n".join(lines)
 

@@ -66,10 +66,17 @@ def test_元動画URLが無ければ落ちる():
 
 
 def test_概要欄の冒頭に元動画のタイトルとURLが入る():
+    # 1行目は問い（docs/engagement.md）。元動画はその直下の2〜3行目
     d = build_description(base())
-    head = d.splitlines()[:2]
-    assert head[0].startswith("【元動画】")
-    assert head[1] == "https://www.youtube.com/watch?v=TuYYB2N0JGE"
+    head = d.splitlines()[:3]
+    assert "？" in head[0] and "コメント" in head[0]
+    assert head[1].startswith("【元動画】")
+    assert head[2] == "https://www.youtube.com/watch?v=TuYYB2N0JGE"
+
+
+def test_ctaを切れば従来どおり元動画が1行目():
+    r = base(); r["cta"] = False
+    assert build_description(r).splitlines()[0].startswith("【元動画】")
 
 
 def test_概要欄に本文が含まれる():

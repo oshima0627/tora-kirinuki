@@ -27,12 +27,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.build_clip import probe_duration  # noqa: E402
 from scripts.cards import (SHORT_BOTTOM, SHORT_SIZE, SHORT_TOP,  # noqa: E402
-                           render_short_caption, render_short_frame,
-                           render_short_point)
+                           render_short_caption, render_short_cta,
+                           render_short_frame, render_short_point)
 from scripts.fetch_source import source_dir  # noqa: E402
 from scripts.moments import rewind_to_topic_head  # noqa: E402
 from scripts.recipe import (build_caption, build_description,  # noqa: E402
-                            points_of, short_dirname, shorts_of, validate,
+                            cta_enabled, points_of, short_cta_text, short_dirname, shorts_of, validate,
                             validate_short)
 from scripts.subtitles import (burn_plan, risky_lines,  # noqa: E402
                                unused_fixes)
@@ -45,6 +45,16 @@ WORK = ROOT / "work"
 
 DUR_TOLERANCE = 1.0
 FPS = 30
+# 締めの問い（docs/engagement.md）。最後の数秒、上帯の見出しを差し替える
+SHORT_CTA_SEC = 4.0
+
+
+def closing_cta(recipe: dict, length: float, index: int = 0) -> dict | None:
+    """締めの問いを論点カードと同じ形（at/sec/text）で返す。無効なら None。"""
+    if not cta_enabled(recipe) or length <= SHORT_CTA_SEC * 2:
+        return None
+    return {"at": round(length - SHORT_CTA_SEC, 3), "sec": SHORT_CTA_SEC,
+            "text": short_cta_text(recipe, index), "cta": True}
 
 
 def load_cues(src_dir: Path) -> list[dict]:
@@ -194,6 +204,9 @@ def build(recipe_path: Path, dry_run: bool = False, index: int = 0) -> Path:
     print(f"[{'dry-run' if dry_run else 'build'}] {name}")
     _report(recipe, start, end, landed, plan, cues, index=index)
     print(f"  フック: {shorts_of(recipe)[index]['hook'][:44]}")
+    cta = closing_cta(recipe, length, index)
+    if cta:
+        print(f"  締めの問い {cta['at']:.1f}-{length:.1f}s  {cta['text']}")
     if dry_run:
         return out
 
@@ -210,14 +223,18 @@ def build(recipe_path: Path, dry_run: bool = False, index: int = 0) -> Path:
 
     inputs = ["-i", str(src / "source.mp4"), "-i", str(frame)]
     points = points_of(recipe, index)
-    chain, last, _ = filter_chain(plan, points)
+    # 締めの問いは論点カードの後ろに積む（上帯で最後に勝つ。下帯の字幕は覆わない）
+    cta = closing_cta(recipe, length, index)
+    overlays = points + ([cta] if cta else [])
+    chain, last, _ = filter_chain(plan, overlays)
     for i, p in enumerate(plan):
         png = caps / f"{i:03d}.png"
         render_short_caption(p["text"]).save(png)
         inputs += ["-i", str(png)]
-    for j, pt in enumerate(points):
+    for j, pt in enumerate(overlays):
         png = caps / f"point_{j:02d}.png"
-        render_short_point(pt["text"]).save(png)
+        (render_short_cta if pt.get("cta") else render_short_point)(
+            pt["text"]).save(png)
         inputs += ["-i", str(png)]
 
     video = out / "video.mp4"

@@ -47,6 +47,7 @@ def validate(recipe: dict) -> None:
     if hit:
         raise ValueError(
             f"タイトルに「{hit}」が入っている。ガイドラインで禁止されている表現")
+    validate_cta(recipe)
 
 
 SHORT_MAX_SEC = 180.0     # Shorts として扱われる上限（YouTube の仕様）
@@ -252,6 +253,86 @@ def validate_question(question: str) -> None:
             "問いにならないので、答えられる形にすること")
 
 
+# 視聴者参加の導線（docs/engagement.md、2026-10-15 承認の常設方針）。
+#
+# 問いは「自分ならどうするか」の型にする。**呼びかけ（見てね・登録してね）だけ
+# ではコメントは増えない。** 答えられる問いを画面と概要欄の1行目に出す。
+# レシピに cta_question が無い旧レシピでも動くよう、タイトル等から既定を作る。
+CTA_END_DEFAULT = "あなたならどうする？コメントで／学びになったら高評価・チャンネル登録を"
+CTA_COMMENT_TAIL = "理由もコメントで"
+# 有償・見返り付きの依頼は方針で禁止。「公式」「公認」はガイドラインで禁止
+CTA_BANNED = ("公式", "公認", "マネーの虎", "プレゼント", "抽選", "謝礼",
+              "相互登録", "登録してくれた方", "高評価してくれた方")
+
+
+def cta_enabled(recipe: dict) -> bool:
+    """"cta": false で無効にできる。既定は有効。"""
+    return recipe.get("cta", True) is not False
+
+
+def cta_question(recipe: dict) -> str:
+    """その回の問い（核）。cta_question → question → タイトル等から既定。"""
+    q = (recipe.get("cta_question") or recipe.get("question") or "").strip()
+    if q:
+        return q
+    cards = recipe.get("cards") or {}
+    text = " ".join([
+        recipe.get("title") or "",
+        (cards.get("brief") or {}).get("amount") or "",
+        (cards.get("verdict") or {}).get("result") or ""])
+    # 社長ファイトクラブ版などは金額ではなく「支援」を判定する
+    if "支援" in text or "ファイトクラブ" in text or "社長FC" in text:
+        return "あなたが虎なら支援する？しない？"
+    return "あなたが虎なら出資する？しない？"
+
+
+def _first_clause(q: str) -> str:
+    """「出資する？しない？」→「出資する？」。最初の疑問符まで。"""
+    for i, ch in enumerate(q):
+        if ch in QUESTION_MARKS:
+            return q[:i + 1]
+    return q
+
+
+def comment_prompt(recipe: dict, question: str | None = None) -> str:
+    """問い＋「理由もコメントで」。問い自体がコメントを求めていれば足さない。"""
+    q = (question or cta_question(recipe)).strip()
+    return q if "コメント" in q else q + CTA_COMMENT_TAIL
+
+
+def cta_start_text(recipe: dict) -> str:
+    """長尺の冒頭テロップ。例「あなたが虎なら出資する？最後に答えを聞きます」"""
+    t = (recipe.get("cta_start") or "").strip()
+    return t or _first_clause(cta_question(recipe)) + "最後に答えを聞きます"
+
+
+def cta_end_text(recipe: dict) -> str:
+    """長尺の終盤テロップ。「／」で2行に分ける。"""
+    return (recipe.get("cta_end") or "").strip() or CTA_END_DEFAULT
+
+
+def short_cta_text(recipe: dict, index: int = 0) -> str:
+    """ショートの締めの1行。shorts[i].cta_question があればそれを使う。"""
+    shorts = shorts_of(recipe)
+    short = shorts[index] if index < len(shorts) else {}
+    q = (short.get("cta_question") or "").strip()
+    return comment_prompt(recipe, q or None)
+
+
+def validate_cta(recipe: dict) -> None:
+    """画面と概要欄に出す問いの禁止語を落とす。"""
+    if not cta_enabled(recipe):
+        return
+    texts = [cta_question(recipe), cta_start_text(recipe), cta_end_text(recipe)]
+    texts += [short_cta_text(recipe, i) for i in range(len(shorts_of(recipe)))]
+    for t in texts:
+        hit = next((w for w in CTA_BANNED if w in t), None)
+        if hit:
+            raise ValueError(f"問いかけに「{hit}」が入っている（docs/engagement.md で禁止）: {t}")
+        if "http://" in t or "https://" in t:
+            raise ValueError(f"問いかけに URL を入れない: {t}")
+
+
 def _source_lines(recipe: dict) -> list[str]:
     """元動画のタイトルとURL。**概要欄にもキャプションにも必ず入れる。**
 
@@ -264,7 +345,10 @@ def build_description(recipe: dict) -> str:
     """概要欄。冒頭の元動画URL・タイトルは手書きさせず、ここで必ず付ける。"""
     body = (recipe.get("description") or "").strip()
     tags = " ".join(f"#{t}" for t in (recipe.get("tags") or []))
-    parts = [*_source_lines(recipe), "", body, "", CREDIT]
+    # **1行目は問い**（docs/engagement.md）。元動画のタイトル・URL はその直下
+    # （2〜3行目）に置き、折りたたまずに見える範囲に残す
+    head = [comment_prompt(recipe)] if cta_enabled(recipe) else []
+    parts = [*head, *_source_lines(recipe), "", body, "", CREDIT]
     if tags:
         parts += ["", tags]
     return "\n".join(parts).strip() + "\n"

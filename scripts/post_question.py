@@ -26,7 +26,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.recipe import question_of, short_dirname, validate_question  # noqa: E402
+from scripts.recipe import (comment_prompt, question_of, short_dirname,  # noqa: E402
+                            validate_question)
 from scripts.upload_youtube import PUBLISHED, current_channel, get_service  # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -34,9 +35,12 @@ if hasattr(sys.stdout, "reconfigure"):
 
 
 def short_ids(recipe_id: str) -> list[str]:
-    """台帳から、このレシピのショートの動画IDを集める。"""
+    """台帳から、このレシピの長尺とショートの動画IDを集める。"""
     led = json.loads(PUBLISHED.read_text(encoding="utf-8-sig"))["videos"]
     out = []
+    # 2026-10-15 の方針（docs/engagement.md）で長尺にも同じ問いを投げる
+    if led.get(recipe_id):
+        out.append(led[recipe_id]["youtube_video_id"])
     for i in range(4):
         entry = led.get(short_dirname(recipe_id, i))
         if entry:
@@ -67,16 +71,13 @@ def main() -> None:
     a = ap.parse_args()
 
     recipe = json.loads(a.recipe.read_text(encoding="utf-8"))
-    q = question_of(recipe)
-    if not q:
-        raise SystemExit(
-            f"! {a.recipe} に question が無い。"
-            '判定が割れる回だけ "question": "あなたが虎なら出資しますか?" を足すこと')
+    # question が無ければ、画面・概要欄と同じ問い（cta_question 由来）を使う
+    q = question_of(recipe) or comment_prompt(recipe)
     validate_question(q)
 
     ids = short_ids(recipe["id"])
     if not ids:
-        raise SystemExit(f"! 台帳に {recipe['id']} のショートが無い")
+        raise SystemExit(f"! 台帳に {recipe['id']} の長尺・ショートが無い")
 
     service = get_service()
     channel_id = current_channel(service)["id"]

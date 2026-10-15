@@ -17,10 +17,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.cards import (overflowing, render_brief, render_point,  # noqa: E402
-                           render_verdict)
+from scripts.cards import (CTA_STACK_TOP, overflowing, render_brief,  # noqa: E402
+                           render_cta, render_point, render_verdict)
 from scripts.fetch_source import source_dir  # noqa: E402
-from scripts.recipe import build_description, validate  # noqa: E402
+from scripts.recipe import (build_description, cta_enabled,  # noqa: E402
+                            cta_end_text, cta_start_text, validate)
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -36,6 +37,11 @@ CARD_SEC = 4.0          # 案件カード・判定カードの表示秒数
 POINT_SEC = 3.5         # 論点カードの表示秒数
 DUR_TOLERANCE = 1.0     # ビルド後の尺の許容差（秒）
 FPS = 30
+
+# 問いかけテロップ（docs/engagement.md）。冒頭は案件カードの直後、終盤は判定カードの直前
+CTA_SEC = 6.0
+CTA_GAP = 0.5           # 案件カード・判定カードとの間
+CTA_SLIDE = 20.0        # 論点カードを避けて前後にずらす最大秒
 
 
 def preflight(recipe: dict, src_dir: Path) -> list[str]:
@@ -96,6 +102,43 @@ def overlay_plan(recipe: dict, cards: Path, length: float) -> list[tuple[Path, f
         at = p["at"] - start
         plan.append((cards / f"point_{i}.png", at, at + POINT_SEC))
     plan.append((cards / "verdict.png", max(0.0, length - CARD_SEC), length))
+    return plan
+
+
+def _overlaps(s: float, e: float, spans: list[tuple[float, float]]) -> bool:
+    return any(s < b and a < e for a, b in spans)
+
+
+def cta_plan(recipe: dict, length: float) -> list[tuple[str, float, float, float]]:
+    """(文言, 開始, 終了, 帯の上端) を本編の時間軸で返す。
+
+    論点カードと同じ上帯を使うので、**時間が重なるならまず前後にずらし**、
+    CTA_SLIDE 秒以内に空きが無ければ論点カードの直下に積む。
+    短すぎる本編（冒頭と終盤が重なる）では終盤だけ出す。
+    """
+    if not cta_enabled(recipe):
+        return []
+    start = recipe["clip"]["start"]
+    spans = [(p["at"] - start, p["at"] - start + POINT_SEC)
+             for p in recipe["cards"].get("points") or []]
+
+    def place(t0: float, step: float, lo: float, hi: float):
+        t = t0
+        while abs(t - t0) <= CTA_SLIDE and lo <= t and t + CTA_SEC <= hi:
+            if not _overlaps(t, t + CTA_SEC, spans):
+                return t, 0.0
+            t += step
+        return t0, CTA_STACK_TOP
+
+    lo, hi = CARD_SEC + CTA_GAP, length - CARD_SEC - CTA_GAP
+    if hi - lo < CTA_SEC:
+        return []
+    plan = []
+    end_t, end_top = place(hi - CTA_SEC, -0.5, lo, hi)
+    if hi - lo >= CTA_SEC * 3:
+        st_t, st_top = place(lo, 0.5, lo, end_t)
+        plan.append((cta_start_text(recipe), st_t, st_t + CTA_SEC, st_top))
+    plan.append((cta_end_text(recipe), end_t, end_t + CTA_SEC, end_top))
     return plan
 
 
@@ -190,6 +233,9 @@ def build(recipe_path: Path, dry_run: bool = False,
         print(f"[dry-run] {recipe['id']}")
         print(f"  切り出し {start:.1f}s - {end:.1f}s（{length:.1f}s）")
         print(f"  論点カード {len(points)} 枚")
+        for text, cs, ce, top in cta_plan(recipe, length):
+            print(f"  問いかけ {cs:6.1f}-{ce:6.1f}s"
+                  f"{'（論点カードの下）' if top else ''}  {text}")
         print(f"  合計尺の見込み {length:.1f}s（カードは重ねるので尺は増えない）")
         return out
 
@@ -203,6 +249,13 @@ def build(recipe_path: Path, dry_run: bool = False,
         render_point(p["text"]).save(cards / f"point_{i}.png")
 
     plan = overlay_plan(recipe, cards, length)
+    # 問いかけは判定カード（末尾・全面）より前に積む。判定カードが最後に乗る
+    ctas = cta_plan(recipe, length)
+    for i, (text, s, e, top) in enumerate(ctas):
+        render_cta(text, top).save(cards / f"cta_{i}.png")
+        plan.insert(len(plan) - 1, (cards / f"cta_{i}.png", s, e))
+        print(f"  問いかけ {s:6.1f}-{e:6.1f}s"
+              f"{'（論点カードの下）' if top else ''}  {text}")
     video = out / "video.mp4"
     # 尺は -t で明示する（-ss だけだと入力側の丸めで伸びる）
     # **-t は出力側に置く。** 入力の -i と次の -i のあいだに書くと、

@@ -380,3 +380,83 @@ def render_short_point(text: str,
         d.text((m, y), ln, font=pick_font(fs), fill=INK + (255,))
         y += lh
     return img
+
+
+# 問いかけテロップ（docs/engagement.md、2026-10-15）。
+#
+# 長尺: 論点カードと同じ上帯の型（白地・不透明）。目印は左の金帯にして論点と区別する。
+#   **下には置かない。** 元動画は画面下に大きなテロップを常時焼き込んでいる。
+#   論点カードと時間が重なるときは、論点カードの下（CTA_STACK_TOP）にずらして重ねる。
+# ショート: 上帯（黒）に見出しと同じ縁取り文字で出す。下帯の字幕は覆わない。
+CTA_STACK_TOP = 0.22          # 論点カード（最大2行で高さ0.212）の直下
+
+
+def cta_lines(text: str) -> list[str]:
+    """「／」で明示的に改行する。各行は描画時に折り返す。"""
+    return [t.strip() for t in (text or "").split("／") if t.strip()]
+
+
+def render_cta(text: str, top: float = 0.0,
+               size: tuple[int, int] = SIZE) -> Image.Image:
+    """長尺の問いかけ帯。top は画面高さに対する帯の上端の比。"""
+    w, h = size
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    rows = cta_lines(text)
+    if not rows:
+        return img
+    d = ImageDraw.Draw(img)
+    m = int(w * 0.06)
+    avail = w - m * 2 - int(w * 0.03)
+    f = pick_font(int(h * 0.052))
+    lines = [ln for r in rows for ln in wrap(d, r, f, avail)][:2]
+    line_h = int(h * 0.074)
+    band_h = line_h * len(lines) + int(h * 0.044)
+    y0 = int(h * top)
+    d.rectangle([0, y0, w, y0 + band_h], fill=BG_TOP + (255,))
+    d.rectangle([0, y0, int(w * 0.014), y0 + band_h], fill=GOLD + (255,))
+    d.rectangle([0, y0 + band_h - 4, w, y0 + band_h], fill=GOLD + (255,))
+    yy = y0 + int(h * 0.020)
+    for i, ln in enumerate(lines):
+        # 1行目（問い）は赤、2行目（呼びかけ）は墨
+        d.text((m, yy), ln, font=f, fill=(RED if i == 0 else INK) + (255,))
+        yy += line_h
+    return img
+
+
+def render_short_cta(text: str,
+                     size: tuple[int, int] = SHORT_SIZE) -> Image.Image:
+    """ショートの締めの問い。上帯（黒）を塗り替え、見出しと同じ縁取り文字で出す。"""
+    w, h = size
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    text = (text or "").strip()
+    if not text:
+        return img
+    d = ImageDraw.Draw(img)
+    band_h = int(h * SHORT_TOP)
+    d.rectangle([0, 0, w, band_h], fill=(0, 0, 0, 255))
+    # 問い（最後の疑問符まで）と「理由もコメントで」に分ける。**折り返しで
+    # 疑問符だけが1行に残らないよう、問いは疑問符の位置でしか切らない**
+    cut = max((i + 1 for i, ch in enumerate(text) if ch in "?？"), default=len(text))
+    head, tail = text[:cut].strip(), text[cut:].strip()
+    m = int(w * 0.05)
+    start = int(h * 0.050)
+    parts, buf = [], ""
+    for ch in head:
+        buf += ch
+        if ch in "?？":
+            parts.append(buf)
+            buf = ""
+    if buf:
+        parts.append(buf)
+    one = [[{"t": head, "c": "y"}]]
+    rows = one if _short_fit(d, one, w - m * 2, start) >= 66 else \
+        [[{"t": t, "c": "y"}] for t in parts]
+    if tail:
+        rows.append([{"t": tail, "c": "w"}])
+    s = _short_fit(d, rows, w - m * 2, int(h * 0.046))
+    lh = int(s * 1.30)
+    y = (band_h - lh * len(rows)) // 2 + int(s * 0.95)
+    for row in rows:
+        _short_row(d, row, w // 2, y, s)
+        y += lh
+    return img
