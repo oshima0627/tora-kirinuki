@@ -61,6 +61,8 @@ python scripts/upload_youtube.py work/<recipe> --schedule <UTC>; python scripts/
 
 ## 次にやること
 
+0. **伸び悩み診断（2026-10-16）**: [docs/2026-10-16-growth-diagnosis.md](docs/2026-10-16-growth-diagnosis.md) の §6 打ち手・§7 日次の変更は**提案のみ・未承認**（パイプラインは未変更）
+
 1. **夕方ジョブ（10/16 18:35 JST）** — 当日短長同士（ショート clWXpKjr-Hs → 長尺 QGbte-b_DPg）を Studio 関連動画に紐づけ。`post_question.py --apply` で問いコメント投稿→Studioでピン留め。前日付け替えはしない
 2. **10/17 の日次制作（14:07 JST、box）** — 当日枠が無ければ短長を作り 18:30 JST 同時予約
 3. 在庫（取得済み）: `gnRv7TEMx38` は今回区間を使用（前半〜中盤の別論点は未使用だが、判定済み本編のため優先度低）。`5s7XkDJBy_M`・`b5IM6DYa-DA` は使用済み。`OpdXqtb73Uc` の最終判定以降（約 2748-末尾）は病気言及あり・慎重に。100–1188.9 と 1960–2740 は使用済み
