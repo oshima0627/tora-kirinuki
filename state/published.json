@@ -1432,6 +1432,28 @@
       "thumbnail_set": true,
       "source_url": "https://www.youtube.com/watch?v=F_k2x7q4mp4",
       "publish_at": "2026-10-26T09:30:00Z"
+    },
+    "2026-10-27-ueda-local-llm": {
+      "youtube_video_id": "_YuM1Mi2ezc",
+      "url": "https://www.youtube.com/watch?v=_YuM1Mi2ezc",
+      "title": "【令和の虎】虎「ぼったくりですね」「AIで何がしたい？」病院でもAIを使えるようにしたい院長のローカルLLM計画を詰めた20分【令和の虎Second 切り抜き】",
+      "privacy_status": "private",
+      "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
+      "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
+      "thumbnail_set": true,
+      "source_url": "https://www.youtube.com/watch?v=zuBMY4W2ajc",
+      "publish_at": "2026-10-27T09:30:00Z"
+    },
+    "2026-10-27-ueda-local-llm-short": {
+      "youtube_video_id": "vOVb53qd1Ao",
+      "url": "https://www.youtube.com/watch?v=vOVb53qd1Ao",
+      "title": "【令和の虎】虎「ぼったくりですね」病院のAIサーバーは普通のパソコンで数百万円？医療業界の値段の謎 #令和の虎 #切り抜き #ビジネス #起業",
+      "privacy_status": "private",
+      "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
+      "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
+      "thumbnail_set": true,
+      "source_url": "https://www.youtube.com/watch?v=zuBMY4W2ajc",
+      "publish_at": "2026-10-27T09:30:00Z"
     }
   },
   "retired": [
