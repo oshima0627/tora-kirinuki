@@ -48,6 +48,8 @@ def validate(recipe: dict) -> None:
         raise ValueError(
             f"タイトルに「{hit}」が入っている。ガイドラインで禁止されている表現")
     validate_cta(recipe)
+    validate_long_format(recipe)
+    validate_experiment(recipe)
 
 
 SHORT_MAX_SEC = 180.0     # Shorts として扱われる上限（YouTube の仕様）
@@ -77,6 +79,41 @@ SHORT_MIN_SEC = 45.0
 
 SHORT_RECOMMENDED_SEC = SHORT_TARGET_MAX
 
+# ---------------------------------------------------------------------------
+# 2026-10-29〜11-11 の形式実験（docs/experiments-ledger.md）。**既定は従来どおり**
+# （format 無し＝standard。45〜180秒の検証・50〜58秒の窓・長尺の尺は検証しない）。
+#
+#   short.format = "kazuzure"  数字ズレ型。10〜15秒を狙い、**8〜20秒だけ通す**
+#   recipe.format = "matome"   図解まとめ（長尺）。**6〜9分（360〜540秒）だけ通す**
+#
+# 数字ズレ型は区間が短いので、締めの帯（既定4秒）も短くする（SHORT_CTA_SEC_BY_FORMAT）。
+# 台詞が解決する最後の数秒を上帯で隠さないため。下帯の字幕は元から覆わない。
+# ---------------------------------------------------------------------------
+SHORT_FORMATS = {
+    # 名前: (下限, 上限, 狙う窓の下限, 狙う窓の上限)
+    "standard": (SHORT_MIN_SEC, SHORT_MAX_SEC, SHORT_TARGET_MIN, SHORT_TARGET_MAX),
+    "kazuzure": (8.0, 20.0, 10.0, 15.0),
+}
+SHORT_CTA_SEC_BY_FORMAT = {"standard": 4.0, "kazuzure": 3.0}
+# 数字ズレ型の title は「【数字ズレ#N】…」。秒数は入れない
+KAZUZURE_TITLE_RE = r"^【数字ズレ#(\d+)】"
+KAZUZURE_SECONDS_RE = r"\d+\s*(?:秒|s\b)"
+
+LONG_FORMATS = {
+    # 名前: (下限, 上限)  None は検証しない（従来の長尺）
+    "standard": None,
+    "matome": (360.0, 540.0),
+}
+# 従来の長尺の狙い（13〜20分）。実験中に standard 側が外れたら警告するだけ
+LONG_STANDARD_TARGET = (780.0, 1200.0)
+
+# 実験の変種。D（締めの文言）は偶数 n で「判定は本編で」、奇数 n は従来の問い。
+# C（長尺）は奇数 n が matome、偶数 n が standard
+ENDING_HANTEI = "判定は本編で"
+EXPERIMENT_SHORT_VARIANTS = ("kazuzure", "fallback")
+EXPERIMENT_ENDINGS = ("question", "hantei")
+EXPERIMENT_LONGS = ("matome", "standard")
+
 
 def shorts_of(recipe: dict) -> list[dict]:
     """このレシピのショートの一覧。
@@ -91,6 +128,58 @@ def shorts_of(recipe: dict) -> list[dict]:
         return list(shorts)
     short = recipe.get("short")
     return [short] if short else []
+
+
+def short_format(recipe: dict, index: int = 0) -> str:
+    """そのショートの形式。`shorts[i].format` → `short_format`（レシピ直下）→ standard。"""
+    shorts = shorts_of(recipe)
+    short = shorts[index] if index < len(shorts) else {}
+    fmt = (short.get("format") or recipe.get("short_format") or "standard")
+    if fmt not in SHORT_FORMATS:
+        raise ValueError(
+            f"short.format が不明: {fmt}（{'/'.join(SHORT_FORMATS)} のどれか）")
+    return fmt
+
+
+def long_format(recipe: dict) -> str:
+    """長尺の形式。`format`（レシピ直下）。無ければ standard（従来どおり）。"""
+    fmt = recipe.get("format") or "standard"
+    if fmt not in LONG_FORMATS:
+        raise ValueError(
+            f"format が不明: {fmt}（{'/'.join(LONG_FORMATS)} のどれか）")
+    return fmt
+
+
+def short_cta_sec(recipe: dict, index: int = 0) -> float:
+    """ショート締めの帯の秒数。`shorts[i].cta_sec` → 形式の既定（standard 4秒 / kazuzure 3秒）。"""
+    shorts = shorts_of(recipe)
+    short = shorts[index] if index < len(shorts) else {}
+    sec = short.get("cta_sec")
+    if sec is None:
+        return SHORT_CTA_SEC_BY_FORMAT[short_format(recipe, index)]
+    sec = float(sec)
+    if not (1.0 <= sec <= 6.0):
+        raise ValueError(f"short.cta_sec が {sec}。1〜6秒の範囲にすること")
+    return sec
+
+
+ENDING_TEXT_MAX = 30
+
+
+def ending_text_of(recipe: dict, index: int = 0) -> str | None:
+    """問いの代わりに締めの帯へ出す一言（D: 偶数 n の「判定は本編で」）。無ければ None。
+
+    `shorts[i].ending_text` → `ending_text`（レシピ直下）→ experiment.variant.ending
+    が "hantei" のとき ENDING_HANTEI。**問いではないので「理由もコメントで」は足さない。**
+    概要欄の1行目は別（comment_prompt）で、ここは影響しない。
+    """
+    shorts = shorts_of(recipe)
+    short = shorts[index] if index < len(shorts) else {}
+    t = (short.get("ending_text") or recipe.get("ending_text") or "").strip()
+    if t:
+        return t
+    variant = ((recipe.get("experiment") or {}).get("variant") or {})
+    return ENDING_HANTEI if variant.get("ending") == "hantei" else None
 
 
 # 論点カード（図解）を出す狙いの秒。実測（n=19）で3秒地点の残存は全19本が
@@ -133,6 +222,9 @@ def validate_short(recipe: dict, cues: list[dict] | None = None,
             f"short の {index + 1} 本目が無い（このレシピには {len(shorts)} 本）")
     short = shorts[index]
 
+    fmt = short_format(recipe, index)
+    min_sec, max_sec, tgt_min, tgt_max = SHORT_FORMATS[fmt]
+
     start, end = short.get("start"), short.get("end")
     if start is None or end is None or end <= start:
         raise ValueError(f"short.clip の範囲が不正: start={start} end={end}")
@@ -161,14 +253,25 @@ def validate_short(recipe: dict, cues: list[dict] | None = None,
                 "字幕を焼けないショートは意味が伝わらない")
 
     length = end - start
-    if length < SHORT_MIN_SEC:
+    if fmt == "standard":
+        if length < min_sec:
+            raise ValueError(
+                f"short が {length:.1f}秒。これでは問いと答えが1往復も入らないので "
+                f"{min_sec:.0f}秒を下限にしている")
+        if length > max_sec:
+            raise ValueError(
+                f"short が {length:.0f}秒。Shorts の上限 {max_sec:.0f}秒を超えている")
+    elif not (min_sec <= length <= max_sec):
         raise ValueError(
-            f"short が {length:.1f}秒。これでは問いと答えが1往復も入らないので "
-            f"{SHORT_MIN_SEC:.0f}秒を下限にしている")
-    if length > SHORT_MAX_SEC:
-        raise ValueError(
-            f"short が {length:.0f}秒。Shorts の上限 {SHORT_MAX_SEC:.0f}秒を超えている")
-    if length > SHORT_TARGET_MAX:
+            f"short（{fmt}）が {length:.1f}秒。この形式は {min_sec:.0f}〜{max_sec:.0f}秒"
+            f"（狙いは {tgt_min:.0f}〜{tgt_max:.0f}秒）だけ通す。"
+            "巻き戻し後の長さで測っている")
+    _validate_short_title(recipe, short, fmt)
+    if fmt != "standard":
+        if length < tgt_min or length > tgt_max:
+            warnings.append(
+                f"short（{fmt}）が {length:.1f}秒。狙う窓は {tgt_min:.0f}〜{tgt_max:.0f}秒")
+    elif length > SHORT_TARGET_MAX:
         # **落とさない。** 尺は素材で決まることもあるし、既存レシピを
         # ビルドし直せなくなる。ただし黙って通すと、実視聴秒が増えないまま
         # 平均視聴率だけが下がる本がまた出る
@@ -181,11 +284,47 @@ def validate_short(recipe: dict, cues: list[dict] | None = None,
             f"short が {length:.0f}秒。狙う窓は "
             f"{SHORT_TARGET_MIN:.0f}〜{SHORT_TARGET_MAX:.0f}秒より短い")
 
-    warnings += _validate_points(points_of(recipe, index), length)
+    warnings += _validate_points(points_of(recipe, index), length,
+                                 check_window=(fmt == "standard"))
     return warnings
 
 
-def _validate_points(points: list[dict], length: float) -> list[str]:
+def _validate_short_title(recipe: dict, short: dict, fmt: str) -> None:
+    """ショートのタイトルを検証する。
+
+    **従来は recipe["title"]（長尺）しか禁止語を見ていなかった。** ショートは
+    short.title（無ければ hook）が実際のタイトルになるので、同じ禁止語を見る。
+    kazuzure は「【数字ズレ#N】…」で、N は experiment.series_no と一致させ、
+    秒数は入れない。
+    """
+    title = (short.get("title") or short.get("hook") or "").strip()
+    hit = next((w for w in BANNED_IN_TITLE if w in title), None)
+    if hit:
+        raise ValueError(
+            f"ショートのタイトルに「{hit}」が入っている。ガイドラインで禁止されている表現")
+    if fmt != "kazuzure":
+        return
+    import re
+
+    if len(title) > 100:
+        raise ValueError(f"ショートのタイトルが {len(title)}文字。100文字を超えると切れる")
+    m = re.match(KAZUZURE_TITLE_RE, title)
+    if not m:
+        raise ValueError(
+            "short.title が「【数字ズレ#N】<出演者名や題材＋何が起きたか>」の形でない: "
+            f"{title!r}")
+    if title[m.end():].strip() == "":
+        raise ValueError("short.title に【数字ズレ#N】のあとの本文（題材と何が起きたか）が無い")
+    if re.search(KAZUZURE_SECONDS_RE, title):
+        raise ValueError(f"short.title に秒数を入れない: {title!r}")
+    series = (recipe.get("experiment") or {}).get("series_no")
+    if series is not None and int(m.group(1)) != int(series):
+        raise ValueError(
+            f"short.title の #{m.group(1)} が experiment.series_no={series} と合わない")
+
+
+def _validate_points(points: list[dict], length: float,
+                     check_window: bool = True) -> list[str]:
     """論点カードの位置を検証する。at はショートの先頭からの秒。"""
     warnings = []
     spans = []
@@ -210,7 +349,8 @@ def _validate_points(points: list[dict], length: float) -> list[str]:
                     "重なっている")
 
     lo, hi = SHORT_POINT_WINDOW
-    if points and not any(lo <= float(p.get("at", 0.0)) <= hi for p in points):
+    if (check_window and points
+            and not any(lo <= float(p.get("at", 0.0)) <= hi for p in points)):
         warnings.append(
             f"short.points が1枚も {lo:.0f}〜{hi:.0f}秒に無い。"
             "実測で残存が落ち始めるのはこの帯なので、1枚目はここに置くこと")
@@ -312,7 +452,13 @@ def cta_end_text(recipe: dict) -> str:
 
 
 def short_cta_text(recipe: dict, index: int = 0) -> str:
-    """ショートの締めの1行。shorts[i].cta_question があればそれを使う。"""
+    """ショートの締めの1行。shorts[i].cta_question があればそれを使う。
+
+    ending_text（D の「判定は本編で」）があれば問いの代わりにそれを出す。
+    """
+    ending = ending_text_of(recipe, index)
+    if ending:
+        return ending
     shorts = shorts_of(recipe)
     short = shorts[index] if index < len(shorts) else {}
     q = (short.get("cta_question") or "").strip()
@@ -325,12 +471,113 @@ def validate_cta(recipe: dict) -> None:
         return
     texts = [cta_question(recipe), cta_start_text(recipe), cta_end_text(recipe)]
     texts += [short_cta_text(recipe, i) for i in range(len(shorts_of(recipe)))]
+    for i in range(len(shorts_of(recipe))):
+        e = ending_text_of(recipe, i)
+        if e and len(e) > ENDING_TEXT_MAX:
+            raise ValueError(f"ending_text が {len(e)}文字。{ENDING_TEXT_MAX}文字以内にすること")
     for t in texts:
         hit = next((w for w in CTA_BANNED if w in t), None)
         if hit:
             raise ValueError(f"問いかけに「{hit}」が入っている（docs/engagement.md で禁止）: {t}")
         if "http://" in t or "https://" in t:
             raise ValueError(f"問いかけに URL を入れない: {t}")
+
+
+def long_length_warnings(recipe: dict) -> list[str]:
+    """長尺の尺の警告（落とさない）。standard は実験中だけ 13〜20分を外れたら知らせる。"""
+    clip = recipe.get("clip") or {}
+    length = float(clip.get("end", 0)) - float(clip.get("start", 0))
+    if recipe.get("experiment") and long_format(recipe) == "standard":
+        lo, hi = LONG_STANDARD_TARGET
+        if not (lo <= length <= hi):
+            return [f"長尺（standard）が {length / 60:.1f}分。従来の 13〜20分から外れている"
+                    "（実験の偶数 n は従来の長尺で比べる）"]
+    return []
+
+
+def validate_long_format(recipe: dict) -> None:
+    """format: "matome" の長尺は 6〜9分（clip の長さ。build_clip は巻き戻さないので確定値）。"""
+    fmt = long_format(recipe)
+    rng = LONG_FORMATS[fmt]
+    if rng is None:
+        return
+    clip = recipe["clip"]
+    length = float(clip["end"]) - float(clip["start"])
+    if not (rng[0] <= length <= rng[1]):
+        raise ValueError(
+            f"長尺（{fmt}）が {length:.0f}秒（{length / 60:.1f}分）。"
+            f"この形式は {rng[0] / 60:.0f}〜{rng[1] / 60:.0f}分だけ通す")
+
+
+EXPERIMENT_START = "2026-10-29"
+
+
+def validate_experiment(recipe: dict) -> None:
+    """experiment ブロック（docs/experiments-ledger.md）の整合を見る。無ければ何もしない。
+
+    experiment = {"id": ..., "n": 0〜13, "series_no": 1〜, "date": "YYYY-MM-DD"(任意),
+                  "variant": {"short": kazuzure|fallback,
+                              "ending": question|hantei, "long": matome|standard}}
+    **偶数 n は ending=hantei・long=standard、奇数 n は ending=question・long=matome。**
+    プラン E（同じ回から2本のショート）は却下済みなので、ショートは1本だけ。
+    """
+    exp = recipe.get("experiment")
+    if not exp:
+        return
+    for key in ("id", "n", "series_no", "variant"):
+        if exp.get(key) in (None, ""):
+            raise ValueError(f"experiment.{key} が無い")
+    n, series = exp["n"], exp["series_no"]
+    if not isinstance(n, int) or isinstance(n, bool) or n < 0:
+        raise ValueError(f"experiment.n が不正: {n!r}（0以上の整数）")
+    if not isinstance(series, int) or isinstance(series, bool) or series < 1:
+        raise ValueError(f"experiment.series_no が不正: {series!r}（1以上の整数）")
+    if exp.get("date"):
+        from datetime import date
+
+        d0 = date.fromisoformat(EXPERIMENT_START)
+        if (date.fromisoformat(exp["date"]) - d0).days != n:
+            raise ValueError(
+                f"experiment.n={n} が date={exp['date']} と合わない"
+                f"（n = {EXPERIMENT_START} からの日数）")
+    v = exp["variant"]
+    if v.get("short") not in EXPERIMENT_SHORT_VARIANTS:
+        raise ValueError(f"experiment.variant.short が不正: {v.get('short')!r}")
+    if v.get("ending") not in EXPERIMENT_ENDINGS:
+        raise ValueError(f"experiment.variant.ending が不正: {v.get('ending')!r}")
+    if v.get("long") not in EXPERIMENT_LONGS:
+        raise ValueError(f"experiment.variant.long が不正: {v.get('long')!r}")
+
+    even = n % 2 == 0
+    if (v["ending"] == "hantei") != even:
+        raise ValueError(
+            f"n={n}（{'偶' if even else '奇'}数）の締めは "
+            f"{'hantei（判定は本編で）' if even else 'question（従来の問い）'} にすること")
+    if (v["long"] == "matome") == even:
+        raise ValueError(
+            f"n={n}（{'偶' if even else '奇'}数）の長尺は "
+            f"{'standard（13〜20分）' if even else 'matome（6〜9分）'} にすること")
+
+    shorts = shorts_of(recipe)
+    if len(shorts) != 1:
+        raise ValueError(
+            f"experiment 中のショートは1本だけ（いま {len(shorts)}本）。"
+            "プラン E（同じ回から2本）は却下済み")
+    want = "kazuzure" if v["short"] == "kazuzure" else "standard"
+    if short_format(recipe, 0) != want:
+        raise ValueError(
+            f"variant.short={v['short']} なのに short.format が {short_format(recipe, 0)}")
+    if long_format(recipe) != ("matome" if v["long"] == "matome" else "standard"):
+        raise ValueError(
+            f"variant.long={v['long']} なのに format が {long_format(recipe)}")
+    if not cta_enabled(recipe):
+        raise ValueError("experiment 中は cta:false にしない（概要欄1行目の問いが要る）")
+    ending = ending_text_of(recipe, 0)
+    if v["ending"] == "hantei" and ending != ENDING_HANTEI:
+        raise ValueError(f"締めは「{ENDING_HANTEI}」にすること（ending_text={ending!r}）")
+    if v["ending"] == "question" and ending:
+        raise ValueError("奇数 n は従来の問い。ending_text を入れない")
+    validate_short(recipe, None, 0)
 
 
 def _source_lines(recipe: dict) -> list[str]:

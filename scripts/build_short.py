@@ -32,7 +32,8 @@ from scripts.cards import (SHORT_BOTTOM, SHORT_SIZE, SHORT_TOP,  # noqa: E402
 from scripts.fetch_source import source_dir  # noqa: E402
 from scripts.moments import rewind_to_topic_head  # noqa: E402
 from scripts.recipe import (build_caption, build_description,  # noqa: E402
-                            cta_enabled, points_of, short_cta_text, short_dirname, shorts_of, validate,
+                            cta_enabled, points_of, short_cta_sec,
+                            short_cta_text, short_dirname, shorts_of, validate,
                             validate_short)
 from scripts.subtitles import (burn_plan, risky_lines,  # noqa: E402
                                unused_fixes)
@@ -45,15 +46,17 @@ WORK = ROOT / "work"
 
 DUR_TOLERANCE = 1.0
 FPS = 30
-# 締めの問い（docs/engagement.md）。最後の数秒、上帯の見出しを差し替える
+# 締めの問い（docs/engagement.md）。最後の数秒、上帯の見出しを差し替える。
+# 標準は4秒。数字ズレ型（8〜20秒）は3秒（recipe.short_cta_sec / shorts[i].cta_sec で上書き可）
 SHORT_CTA_SEC = 4.0
 
 
 def closing_cta(recipe: dict, length: float, index: int = 0) -> dict | None:
     """締めの問いを論点カードと同じ形（at/sec/text）で返す。無効なら None。"""
-    if not cta_enabled(recipe) or length <= SHORT_CTA_SEC * 2:
+    sec = short_cta_sec(recipe, index)
+    if not cta_enabled(recipe) or length <= sec * 2:
         return None
-    return {"at": round(length - SHORT_CTA_SEC, 3), "sec": SHORT_CTA_SEC,
+    return {"at": round(length - sec, 3), "sec": sec,
             "text": short_cta_text(recipe, index), "cta": True}
 
 
@@ -270,6 +273,7 @@ def build(recipe_path: Path, dry_run: bool = False, index: int = 0) -> Path:
         "privacy_status": recipe.get("privacy_status", "private"),
         "expected_channel_id": recipe["expected_channel_id"],
         "source_url": recipe["source_url"],
+        **({"experiment": recipe["experiment"]} if recipe.get("experiment") else {}),
     }, ensure_ascii=False, indent=1), encoding="utf-8")
 
     w, h = SHORT_SIZE

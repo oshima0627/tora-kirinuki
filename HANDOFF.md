@@ -28,6 +28,10 @@ python scripts/upload_youtube.py work/<recipe> --schedule <UTC>; python scripts/
 - 2026-10-15 実施: token.json の scopes に youtube.force-ssl あり（ファイル記載で確認）。試験ビルド `work/_boxtest-cta-20261015`（長尺80秒）/ `-short`（55.4秒）でフレーム確認済み（未アップロード）。本番日次（与儀）でも冒頭・終盤・ショート締めの CTA 帯をフレーム確認済み。pytest 289 passed
 - 未検証: 実際のコメント投稿（--apply）・返信の運用、Studio ピン留め手作業
 
+## 形式実験（2026-10-29〜11-11、承認済み）→ [docs/experiments-ledger.md](docs/experiments-ledger.md)
+
+数字ズレ型ショート（8〜20秒・【数字ズレ#N】）を毎日、偶数 n は締め「判定は本編で」＋従来長尺、奇数 n は従来の問い＋6〜9分の図解まとめ。レビュー 2026-11-12。プランE（同じ回から2本）は却下。レシピ項目 `short.format: "kazuzure"` / `format: "matome"` / `ending_text` / `experiment` はすべて任意で、無ければ従来どおり。`validate()` が尺・偶奇・タイトル型を検査する（tests/test_experiment.py）。日次の手順は docs/daily-workflow.md「形式実験」。
+
 ## レシピ方針（日次）
 
 未使用レシピ在庫が無い、または note 不足で使えないときは**人手待ちにしない**。日次フロー内で find_moments / find_short 等からレシピを新規作成してから短長を進める。使える在庫レシピがあればそれを優先。禁止素材（R05BBh55p_U、xfr6w7g_Xucの34分以降、HowwrqNF9gw など）は維持。

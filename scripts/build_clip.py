@@ -21,7 +21,8 @@ from scripts.cards import (CTA_STACK_TOP, overflowing, render_brief,  # noqa: E4
                            render_cta, render_point, render_verdict)
 from scripts.fetch_source import source_dir  # noqa: E402
 from scripts.recipe import (build_description, cta_enabled,  # noqa: E402
-                            cta_end_text, cta_start_text, validate)
+                            cta_end_text, cta_start_text, long_length_warnings,
+                            validate)
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -51,6 +52,8 @@ def preflight(recipe: dict, src_dir: Path) -> list[str]:
     レシピ自体の不備は ValueError で即座に落とす（規約違反の予防なので妥協しない）。
     """
     validate(recipe)
+    for w in long_length_warnings(recipe):
+        print(f"! {w}")
 
     missing = []
     for name in ("source.mp4", "subs.json"):
@@ -287,6 +290,7 @@ def build(recipe_path: Path, dry_run: bool = False,
         "privacy_status": recipe.get("privacy_status", "private"),
         "expected_channel_id": recipe["expected_channel_id"],
         "source_url": recipe["source_url"],
+        **({"experiment": recipe["experiment"]} if recipe.get("experiment") else {}),
     }, ensure_ascii=False, indent=1), encoding="utf-8")
 
     print(f"✓ {video}  {actual:.1f}s")

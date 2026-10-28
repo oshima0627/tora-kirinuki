@@ -30,7 +30,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.fetch_source import source_dir  # noqa: E402
 from scripts.moments import is_letterboxed, short_candidates  # noqa: E402
-from scripts.recipe import SHORT_TARGET_MAX, SHORT_TARGET_MIN  # noqa: E402
+from scripts.recipe import (SHORT_FORMATS, SHORT_TARGET_MAX,  # noqa: E402
+                            SHORT_TARGET_MIN)
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -70,9 +71,18 @@ def main() -> None:
                     help=f"尺の下限（秒。既定 {SHORT_TARGET_MIN:.0f}）")
     ap.add_argument("--max", type=float, default=SHORT_TARGET_MAX,
                     help=f"尺の上限（秒。既定 {SHORT_TARGET_MAX:.0f}）")
+    ap.add_argument("--format", choices=sorted(SHORT_FORMATS), default=None,
+                    help="形式の狙い窓を --min/--max の既定にする（kazuzure は 10〜15秒。"
+                         "探す帯は --from/--to で別に指定。--min/--max の明示が優先）")
     ap.add_argument("--letterbox", action="store_true",
                     help="候補の前後のフレームを抜いて黒帯を測る（source.mp4 が要る）")
     a = ap.parse_args()
+    if a.format:
+        _, _, tmin, tmax = SHORT_FORMATS[a.format]
+        if a.min == SHORT_TARGET_MIN:
+            a.min = tmin
+        if a.max == SHORT_TARGET_MAX:
+            a.max = tmax
 
     d = source_dir(a.video_id)
     subs = d / "subs.json"
