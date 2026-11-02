@@ -80,6 +80,17 @@ def test_案件カードは0秒から出る():
     assert start == 0.0 and end == CARD_SEC
 
 
+def test_案件カードは後ろへずらせる():
+    # 冒頭フック強化: 0秒目は本題の場面＋上帯の見出しにする
+    r = recipe()
+    r["clip"] = {"start": 100.0, "end": 160.0}
+    r["cards"]["points"] = [{"at": 100.0, "text": "hook"}]
+    r["cards"]["brief_at"] = 20.0
+    plan = overlay_plan(r, Path("cards"), 60.0)
+    assert plan[0][1:] == (20.0, 20.0 + CARD_SEC)
+    assert plan[1][1] == 0.0
+
+
 def test_判定カードは末尾に収まる():
     png, start, end = _plan()[-1]
     assert png.name == "verdict.png"

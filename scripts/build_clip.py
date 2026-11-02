@@ -100,12 +100,22 @@ def overlay_plan(recipe: dict, cards: Path, length: float) -> list[tuple[Path, f
     尺は本編と一致する（連結していた頃は前後に4秒ずつ足されていた）。
     """
     start = recipe["clip"]["start"]
-    plan = [(cards / "brief.png", 0.0, CARD_SEC)]
+    b = brief_at(recipe)
+    plan = [(cards / "brief.png", b, b + CARD_SEC)]
     for i, p in enumerate(recipe["cards"].get("points") or []):
         at = p["at"] - start
         plan.append((cards / f"point_{i}.png", at, at + POINT_SEC))
     plan.append((cards / "verdict.png", max(0.0, length - CARD_SEC), length))
     return plan
+
+
+def brief_at(recipe: dict) -> float:
+    """案件カードを出す秒（本編の時間軸）。既定は0秒。
+
+    冒頭フック強化（2026-11-02〜）では0秒目に本題の場面を見せたいので、
+    cards.brief_at で案件カードを後ろへずらせる（フックの論点カードを0秒に置く）。
+    """
+    return float((recipe.get("cards") or {}).get("brief_at") or 0.0)
 
 
 def _overlaps(s: float, e: float, spans: list[tuple[float, float]]) -> bool:
@@ -124,6 +134,8 @@ def cta_plan(recipe: dict, length: float) -> list[tuple[str, float, float, float
     start = recipe["clip"]["start"]
     spans = [(p["at"] - start, p["at"] - start + POINT_SEC)
              for p in recipe["cards"].get("points") or []]
+    if brief_at(recipe) > 0:
+        spans.append((brief_at(recipe), brief_at(recipe) + CARD_SEC))
 
     def place(t0: float, step: float, lo: float, hi: float):
         t = t0
