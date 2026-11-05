@@ -1630,6 +1630,28 @@
       "thumbnail_set": true,
       "source_url": "https://www.youtube.com/watch?v=_jwnzw22d-E",
       "publish_at": "2026-11-04T09:30:00Z"
+    },
+    "2026-11-05-kimura-kangaroo-hamburg-5980-short": {
+      "youtube_video_id": "0tR-VN3-NFI",
+      "url": "https://www.youtube.com/watch?v=0tR-VN3-NFI",
+      "title": "【数字ズレ#8】カンガルー肉ハンバーグの表示は100g、一般の商品は70g。それでも虎「数字見ても体にいい」 #令和の虎 #切り抜き #ビジネス",
+      "privacy_status": "private",
+      "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
+      "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
+      "thumbnail_set": true,
+      "source_url": "https://www.youtube.com/watch?v=_jwnzw22d-E",
+      "publish_at": "2026-11-05T09:30:00Z"
+    },
+    "2026-11-05-kimura-kangaroo-hamburg-5980": {
+      "youtube_video_id": "DtYWpXN70F0",
+      "url": "https://www.youtube.com/watch?v=DtYWpXN70F0",
+      "title": "【令和の虎】カンガルー肉ハンバーグを虎が試食「美味しい、ただちょっと高い」4個5,980円とカンガルー100%にしない理由【令和の虎Second 切り抜き】",
+      "privacy_status": "private",
+      "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
+      "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
+      "thumbnail_set": true,
+      "source_url": "https://www.youtube.com/watch?v=_jwnzw22d-E",
+      "publish_at": "2026-11-05T09:30:00Z"
     }
   },
   "retired": [
@@ -1656,6 +1678,19 @@
       "thumbnail_set": true,
       "source_url": "https://www.youtube.com/watch?v=xfr6w7g_Xuc",
       "publish_at": null
+    },
+    {
+      "youtube_video_id": "sSb-rH9lduY",
+      "url": "https://www.youtube.com/watch?v=sSb-rH9lduY",
+      "title": "【令和の虎】カンガルー肉ハンバーグ4個5,980円、試食で虎「美味しい、ただちょっと高い」168kcalの栄養表示と価格の見方【令和の虎Second 切り抜き】",
+      "privacy_status": "private",
+      "channel_id": "UCWupHXqf8CTG00c_eoQSw1Q",
+      "channel_title": "図解でわかる令和の虎【令和の虎Second 切り抜き】",
+      "thumbnail_set": true,
+      "source_url": "https://www.youtube.com/watch?v=_jwnzw22d-E",
+      "publish_at": null,
+      "recipe_id": "2026-11-05-kimura-kangaroo-hamburg-5980",
+      "note": "2026-11-05 取り下げ（予約解除・private）。区間が 32:09〜32:20（切らない区間）を含んでいたため作り直し。削除はユーザー判断"
     }
   ]
 }
