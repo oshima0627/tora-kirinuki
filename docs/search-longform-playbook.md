@@ -93,11 +93,11 @@
 | 優先 | 元動画 | 公開 | 尺 | 再生（11/23） | 検索語の候補 | 注意 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | 本編待ち | 予告のみ | — | — | 各回の商材・志願者名 | 中村克史（トゥクリング、11/20 予告 DmChIBCG_BI）／中川知也（11/21 予告 hxInG7qn-r0）／片野孝輝（11/18 予告 dWllVCnbFpI）／平野浩希（11/19 予告 6yqpLjzQkPI）。予告は切らない。本編が出たら3日以内最優先。 |
-| 2 | [TJ5a2Wk1Cas](https://www.youtube.com/watch?v=TJ5a2Wk1Cas) 【前編】採用全落ちから這い上がり仕事を見つけたい【長野 佑香】人財版59人目 | 11/15 | 23分 | 92,062 | 長野佑香／令和の虎 就職・採用 | 未使用。公開から8日。7〜10日フォールバックの第一候補（2026-11-23 日次） |
+| 2 | [TJ5a2Wk1Cas](https://www.youtube.com/watch?v=TJ5a2Wk1Cas) 【前編】採用全落ちから這い上がり仕事を見つけたい【長野 佑香】人財版59人目 | 11/15 | 23分 | 92,062 | 長野佑香／令和の虎 就職・採用 | 公開から8日。11/23 日次で字幕を再確認し不採用（聴覚障害・いじめ・障害者雇用が 0:02〜18:54 に散らばり、禁止語の無い連続区間は最長約3分） |
 | 3 | [EoI8q7ut-3Q](https://www.youtube.com/watch?v=EoI8q7ut-3Q) 被災地支援を掲げ1000万円を求める31歳【宮田 悠司】関西版89人目 | 11/4 | 59分 | 122,753 | 令和の虎 被災地／復興／宮田悠司 | 公開から19日。8日超なので優先度は低い。被災者・災害の扱いは事実のみ、煽らない |
 | 4 | [Wp2R6ZHnNOI](https://www.youtube.com/watch?v=Wp2R6ZHnNOI) ナンパを広めて少子化を解消したい【カズイチ】SNS版22人目 | 11/9 | 50分 | 765,090 | 令和の虎 ナンパ／カズイチ | 公開から14日。再生は多いが題材が性的・広告不適合寄り。サムネ・タイトルで性的に煽らない。出すなら事業性の議論の区間に限る |
 
-上限到達（同じ回で長尺2本済み、追加しない）: [ck3Xec2ZAHU](https://www.youtube.com/watch?v=ck3Xec2ZAHU) 田嶌健・AI売上予測（11/20）、[LDCMFJL-dgw](https://www.youtube.com/watch?v=LDCMFJL-dgw) 井戸実・ステーキけん（11/13）、[s8lyBpmNgHg](https://www.youtube.com/watch?v=s8lyBpmNgHg) MURACO・コンカフェ（10/9）。
+上限到達（同じ回で長尺2本済み、追加しない）: [ck3Xec2ZAHU](https://www.youtube.com/watch?v=ck3Xec2ZAHU) 田嶌健・AI売上予測（11/20）、[LDCMFJL-dgw](https://www.youtube.com/watch?v=LDCMFJL-dgw) 井戸実・ステーキけん（11/13）、[s8lyBpmNgHg](https://www.youtube.com/watch?v=s8lyBpmNgHg) MURACO・コンカフェ（10/9）、[lJ01U5keezg](https://www.youtube.com/watch?v=lJ01U5keezg) 伊谷亜子・シンガーソングライター（10/14、11/23 に6分まとめで2本目）。
 
 見送り: [dslcmM_vN-I](https://www.youtube.com/watch?v=dslcmM_vN-I)（11/22、CAN旅ユカ、乳がんで世界一周が主題）、[UBqSUTamZ3M](https://www.youtube.com/watch?v=UBqSUTamZ3M)（禁止）、[oJjxzDAKEnw](https://www.youtube.com/watch?v=oJjxzDAKEnw)（いじめ・コンプレックス、心の不調の話を含む可能性が高いので見送り。推測）。
 どの回も取り込み前に字幕で「病気・入院・自殺・うつ・死にたい」等を検索し、該当区間は使わない。今後も毎日 Second の新着本編を見て、公開3日以内の回を最優先にする。
